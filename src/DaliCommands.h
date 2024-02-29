@@ -38,9 +38,10 @@ enum DaliSpecialCmd {
 
 /** DALI Extended Commands for DT8 - You shall call ENABLE_DT before*/
 enum DaliCmdExtendedDT8 {
-  SET_TEMP_KELVIN = 231, //AppExtDT8
-  SET_TEMP_RGB = 235, //AppExtDT8
-  QUERY_COLOR_TYPE_FEATURES = 249 //AppExtDT8
+  SET_TEMP_KELVIN = 231,
+  SET_TEMP_RGB = 235,
+  QUERY_COLOR_TYPE_FEATURES = 249,
+  QUERY_COLOR_VALUE = 250
 };
 
 
