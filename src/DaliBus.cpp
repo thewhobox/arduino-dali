@@ -92,7 +92,9 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   #endif
 }
 
-daliReturnValue DaliBusClass::sendRaw(const byte * message, byte length) {
+daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
+  uint8_t length = (bits - (bits % 8)) / 8;
+  if(bits % 8 != 0) length++;
   if (length > 3) return DALI_INVALID_PARAMETER;
   if (busState != IDLE) return DALI_BUSY;
 
@@ -216,7 +218,7 @@ void DaliBusClass::timerISR() {
               uint8_t *data = new uint8_t[len];
               for(int i = 0; i < len; i++)
                 data[i] = (rxCommand >> ((len-1-i)*8)) & 0xFF;
-              receivedCallback(data, len);
+              receivedCallback(data, (rxLength - (rxLength % 2)) / 2);
               delete[] data;
             } else {
               receivedCallback((uint8_t*)&rxCommand, 1);
