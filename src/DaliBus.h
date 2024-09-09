@@ -63,9 +63,9 @@ const unsigned long DALI_TE_MAX = (120 * DALI_TE) / 100;                 // 500u
 #if defined(ARDUINO_ARCH_RP2040)
   #define getBusLevel (activeLow ? !gpio_get(rxPin) : gpio_get(rxPin))
   #define setBusLevel(level) gpio_put(txPin, (activeLow ? !level : level)); txBusLevel = level;
-#elif defined(ARDUINO_ARCH_ESP32)
-  #define getBusLevel (activeLow ? !(DaliBus.fastRead(rxPin)) : DaliBus.fastRead(rxPin))
-  #define setBusLevel(level) DaliBus.fastWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
+// #elif defined(ARDUINO_ARCH_ESP32)
+//   #define getBusLevel (activeLow ? !(DaliBus.fastRead(rxPin)) : DaliBus.fastRead(rxPin))
+//   #define setBusLevel(level) DaliBus.fastWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
 #else
   #define getBusLevel (activeLow ? !digitalRead(rxPin) : digitalRead(rxPin))
   #define setBusLevel(level) digitalWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
@@ -98,6 +98,21 @@ class DaliBusClass {
     daliReturnValue sendRaw(const byte * message, uint8_t bits);
 
     int getLastResponse();
+
+// #ifdef ARDUINO_ARCH_ESP32
+
+//     void fastWrite(uint8_t pin, uint8_t value)
+//     {
+//       if(value)
+//         GPIO.out_w1ts = ((uint32_t)1 << pin);
+//       else
+//         GPIO.out_w1tc = ((uint32_t)1 << pin);
+//     }
+//     bool fastRead(uint8_t pin)
+//     {
+//       return (GPIO.in >> pin) & 0b1;
+//     }
+// #endif
 
     bool busIsIdle();
     volatile byte busIdleCount;
