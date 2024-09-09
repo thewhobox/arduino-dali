@@ -95,6 +95,7 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
   uint8_t length = (bits - (bits % 8)) / 8;
   if(bits % 8 != 0) length++;
+  if(bits == 25) return DALI_RX_EMPTY; //assume we sent 25bits woth no respond
   if (length > 3) return DALI_INVALID_PARAMETER;
   if (busState != IDLE) return DALI_BUSY;
 
