@@ -39,16 +39,6 @@ void DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
 #endif
 #endif
 
-// static void gpio_toggle ()
-// {
-//   DaliBus.pinchangeISR();
-//   gpio_acknowledge_irq(16, IO_IRQ_BANK0);
-// }
-
-void _gpioInterruptDispatcher3(uint gpio, uint32_t events) {
-  DaliBus.pinchangeISR();
-}
-
 void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   txPin = tx_pin;
   rxPin = rx_pin;
@@ -65,12 +55,6 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   pinMode(rxPin, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(rxPin), DaliBus_wrapper_pinchangeISR, CHANGE);
-
-  //gpio_set_irq_enabled_with_callback(rxPin, GPIO_IRQ_EDGE_FALL|GPIO_IRQ_EDGE_RISE, true, _gpioInterruptDispatcher3);
-
-  // irq_set_exclusive_handler(IO_IRQ_BANK0, gpio_toggle);
-  // gpio_set_irq_enabled(rxPin, GPIO_IRQ_EDGE_FALL|GPIO_IRQ_EDGE_RISE, true);
-  // irq_set_enabled(IO_IRQ_BANK0, true);
 
   #ifdef DALI_TIMER
   #if defined(ARDUINO_ARCH_RP2040)
@@ -93,22 +77,17 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
 }
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
-  Serial.print("bits: ");
-  Serial.print(bits);
-  Serial.print(" - ");
+  if(bits > 25) return DALI_INVALID_PARAMETER;
+  if(bits == 25) return DALI_RX_EMPTY; //assume we sent 25bits with no respond
+  if(bits != 25 && bits % 8 != 0) return DALI_INVALID_PARAMETER;
   uint8_t length = (bits - (bits % 8)) / 8;
-  Serial.print(length);
-  Serial.print(" - ");
   if(bits % 8 != 0) length++;
-  Serial.print(length);
-  if(bits == 25) return DALI_RX_EMPTY; //assume we sent 25bits woth no respond
-  if (length > 3) return DALI_INVALID_PARAMETER;
   if (busState != IDLE) return DALI_BUSY;
 
   // prepare variables for sending
   for (byte i = 0; i < length; i++)
     txMessage[i] = message[i];
-  txLength = length * 8;
+  txLength = bits;
   txCollision = 0;
   rxMessage = DALI_RX_EMPTY;
   rxLength = 0;
@@ -201,7 +180,7 @@ void DaliBusClass::timerISR() {
       }   
       break;
     case WAIT_RX: // wait 9.17ms (22 TE) for a response
-      if (busIdleCount > 23)
+      if (busIdleCount > 22)
         busState = IDLE; // response timed out
       break;
     case RX_STOP:
@@ -228,7 +207,7 @@ void DaliBusClass::timerISR() {
               receivedCallback(data, (rxLength - (rxLength % 2)) / 2);
               delete[] data;
             } else {
-              receivedCallback((uint8_t*)&rxCommand, 1);
+              receivedCallback((uint8_t*)&rxCommand, 8);
             }
           }
         }
