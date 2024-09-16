@@ -66,9 +66,11 @@ const unsigned long DALI_TE_MAX = (120 * DALI_TE) / 100;                 // 500u
 #elif defined(ARDUINO_ARCH_ESP32)
   #define getBusLevel (activeLow ? !(DaliBus.fastRead(rxPin)) : DaliBus.fastRead(rxPin))
   #define setBusLevel(level) DaliBus.fastWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
-#else
+#elif defined(ARDUINO_ARCH_AVR)
   #define getBusLevel (activeLow ? !digitalRead(rxPin) : digitalRead(rxPin))
   #define setBusLevel(level) digitalWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
+#else
+  #error not supported Hardware
 #endif
 
 /** some enum */

@@ -78,7 +78,7 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
   if(bits > 25) return DALI_INVALID_PARAMETER;
-  if(bits == 25) return DALI_RX_EMPTY; //assume we sent 25bits with no respond
+  //if(bits == 25) return DALI_RX_EMPTY; //assume we sent 25bits with no respond
   if(bits != 25 && bits % 8 != 0) return DALI_INVALID_PARAMETER;
   uint8_t length = (bits - (bits % 8)) / 8;
   if(bits % 8 != 0) length++;
@@ -87,6 +87,13 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
   // prepare variables for sending
   for (byte i = 0; i < length; i++)
     txMessage[i] = message[i];
+
+  if(bits == 25) {
+    txMessage[3] = (txMessage[2] & 1) << 7;
+    txMessage[2] = (txMessage[2] >> 1) & ((txMessage[1] & 1) << 7);
+    txMessage[1] = (txMessage[1] >> 1) & 0b10000000;
+  }
+
   txLength = bits;
   txCollision = 0;
   rxMessage = DALI_RX_EMPTY;
@@ -198,17 +205,32 @@ void DaliBusClass::timerISR() {
         {
           if(receivedCallback != 0)
           {
-            uint8_t len = (rxLength - (rxLength % 2)) / (2*8);
-            if(len > 1)
-            {
-              uint8_t *data = new uint8_t[len];
-              for(int i = 0; i < len; i++)
-                data[i] = (rxCommand >> ((len-1-i)*8)) & 0xFF;
-              receivedCallback(data, (rxLength - (rxLength % 2)) / 2);
-              delete[] data;
-            } else {
-              receivedCallback((uint8_t*)&rxCommand, 8);
+            uint8_t bitlen = (rxLength - (rxLength % 2)) / 2;
+            uint8_t *data = new uint8_t[3];
+            uint8_t offset = bitlen - 8;
+            data[0] = rxCommand >> offset;
+            bitlen -= bitlen == 25 ? 9 : 8;
+            if(offset != 0) {
+              data[1] = rxCommand >> offset;
+              offset -= 8;
             }
+            if(offset != 0) {
+              data[2] = rxCommand >> offset;
+              offset -= 8;
+            }
+            receivedCallback(data, bitlen);
+
+            // uint8_t len = (rxLength - (rxLength % 2)) / (2*8);
+            // if(len > 1)
+            // {
+            //   uint8_t *data = new uint8_t[len];
+            //   for(int i = 0; i < len; i++)
+            //     data[i] = (rxCommand >> ((len-1-i)*8)) & 0xFF;
+            //   receivedCallback(data, (rxLength - (rxLength % 2)) / 2);
+            //   delete[] data;
+            // } else {
+            //   receivedCallback((uint8_t*)&rxCommand, 8);
+            // }
           }
         }
       }
@@ -220,7 +242,7 @@ void DaliBusClass::timerISR() {
 void __not_in_flash_func(DaliBusClass::pinchangeISR)() {
 #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 void IRAM_ATTR DaliBusClass::pinchangeISR() {
-#elif defined(ARDUINO_ARCH_AVR)
+#else
 void DaliBusClass::pinchangeISR() {
 #endif
   byte busLevel = getBusLevel; // TODO: do we have to check if level actually changed?
