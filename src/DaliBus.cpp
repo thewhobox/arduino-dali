@@ -209,7 +209,7 @@ void DaliBusClass::timerISR() {
             uint8_t *data = new uint8_t[3];
             uint8_t offset = bitlen - 8;
             data[0] = rxCommand >> offset;
-            bitlen -= bitlen == 25 ? 9 : 8;
+            offset -= bitlen == 25 ? 9 : 8;
             if(offset != 0) {
               data[1] = rxCommand >> offset;
               offset -= 8;
