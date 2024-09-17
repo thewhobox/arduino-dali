@@ -90,8 +90,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
 
   if(bits == 25) {
     txMessage[3] = (txMessage[2] & 1) << 7;
-    txMessage[2] = (txMessage[2] >> 1) & ((txMessage[1] & 1) << 7);
-    txMessage[1] = (txMessage[1] >> 1) & 0b10000000;
+    txMessage[2] = (txMessage[2] >> 1) | 0b10000000;
   }
 
   txLength = bits;
@@ -207,30 +206,23 @@ void DaliBusClass::timerISR() {
           {
             uint8_t bitlen = (rxLength - (rxLength % 2)) / 2;
             uint8_t *data = new uint8_t[3];
+            if(bitlen == 25) {
+              uint8_t temp = rxCommand & 0xFF;
+              rxCommand = (rxCommand >> 1) & 0xFFFF;
+              rxCommand |= temp;
+            }
             uint8_t offset = bitlen - 8;
-            data[0] = rxCommand >> offset;
-            offset -= bitlen == 25 ? 9 : 8;
+            data[0] = (rxCommand >> offset) & 0xFF;
+            offset -= 8;
             if(offset != 0) {
-              data[1] = rxCommand >> offset;
+              data[1] = (rxCommand >> offset) & 0xFF;
               offset -= 8;
             }
             if(offset != 0) {
-              data[2] = rxCommand >> offset;
+              data[2] = (rxCommand >> offset) & 0xFF;
               offset -= 8;
             }
             receivedCallback(data, bitlen);
-
-            // uint8_t len = (rxLength - (rxLength % 2)) / (2*8);
-            // if(len > 1)
-            // {
-            //   uint8_t *data = new uint8_t[len];
-            //   for(int i = 0; i < len; i++)
-            //     data[i] = (rxCommand >> ((len-1-i)*8)) & 0xFF;
-            //   receivedCallback(data, (rxLength - (rxLength % 2)) / 2);
-            //   delete[] data;
-            // } else {
-            //   receivedCallback((uint8_t*)&rxCommand, 8);
-            // }
           }
         }
       }
