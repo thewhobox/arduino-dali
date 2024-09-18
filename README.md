@@ -1,3 +1,5 @@
+[![PlatformIO Registry](https://badges.registry.platformio.org/packages/thewhobox/library/Dali.svg)](https://registry.platformio.org/libraries/thewhobox/Dali) [![CodeFactor](https://www.codefactor.io/repository/github/thewhobox/arduino-dali/badge)](https://www.codefactor.io/repository/github/thewhobox/arduino-dali)
+
 ### Fork
 This repo is a fork with a few special enhancements:  
  - Defines to setup dali (see below)
