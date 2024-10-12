@@ -1,6 +1,6 @@
 {
     "name": "Dali",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "dependencies": {
         "khoih-prog/TimerInterrupt_Generic": "^1.13.0"
     },
