@@ -109,7 +109,7 @@ int DaliClass::sendCmdWait(byte address, DaliCmd command, byte addr_type, byte t
   int result;
 
   while (sendCount) {
-    result = sendRawWait(prepareCmd(message, address, command, addr_type, 1), 2, timeout);
+    result = sendRawWait(prepareCmd(message, address, command, addr_type, 1), 16, timeout);
     if (result != DALI_RX_EMPTY) return result;
     sendCount--;
   }
