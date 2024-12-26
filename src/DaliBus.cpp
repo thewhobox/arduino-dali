@@ -27,6 +27,9 @@ void IRAM_ATTR DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
 #elif defined(ARDUINO_ARCH_ESP8266)
 ESP8266Timer timer2(DALI_TIMER);
 void IRAM_ATTR DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
+#elif defined(ARDUINO_ARCH_STM32)
+STM32Timer timer2(DALI_TIMER);
+void DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
 #elif defined(ARDUINO_ARCH_AVR)
   #if DALI_TIMER==1
   #define timer2 ITimer1
@@ -72,6 +75,10 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
     timer2.attachInterrupt(2398, +[](unsigned int outputPin) {
       DaliBus.timerISR();
     });
+  #elif defined(ARDUINO_ARCH_STM32)
+  timer2.attachInterrupt(2398, []() {
+    DaliBus.timerISR();
+  });
   #endif
   #endif
 }
@@ -126,7 +133,7 @@ int DaliBusClass::getLastResponse() {
 void __time_critical_func(DaliBusClass::timerISR()) {
 #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
 void IRAM_ATTR DaliBusClass::timerISR() {
-#elif defined(ARDUINO_ARCH_AVR)
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_STM32)
 void DaliBusClass::timerISR() {
 #endif
   if (busIdleCount < 0xff) // increment idle counter avoiding overflow
@@ -204,24 +211,41 @@ void DaliBusClass::timerISR() {
           if(receivedCallback != 0)
           {
             uint8_t bitlen = (rxLength - (rxLength % 2)) / 2;
-            uint8_t *data = new uint8_t[3];
+            uint8_t *data = new uint8_t[3]; // Allocate 3 bytes for safety.
+
             if(bitlen == 25) {
               uint8_t temp = rxCommand & 0xFF;
               rxCommand = (rxCommand >> 1) & 0xFFFF;
               rxCommand |= temp;
             }
-            uint8_t offset = bitlen - 8;
+
+            // Extract bytes from rxCommand
+            uint8_t offset = bitlen - 8; // Start with bitlen - 8 for the first byte
+
+            // Extract the first byte (always available if bitlen >= 16)
             data[0] = (rxCommand >> offset) & 0xFF;
+
+            // Decrease offset and extract the second byte if bitlen >= 16
             offset -= 8;
-            if(offset != 0) {
+            if (bitlen >= 16) {
               data[1] = (rxCommand >> offset) & 0xFF;
-              offset -= 8;
+            } else {
+              data[1] = 0; // Clear the second byte if it's not present
             }
-            if(offset != 0) {
+
+            // Decrease offset and extract the third byte if bitlen >= 24
+            offset -= 8;
+            if (bitlen >= 24) {
               data[2] = (rxCommand >> offset) & 0xFF;
-              offset -= 8;
+            } else {
+              data[2] = 0; // Clear the third byte if it's not present
             }
+
+            // Call the callback with the data and bit length
             receivedCallback(data, bitlen);
+
+            // Cleanup: If you don't free the memory in the callback, free it here
+            delete[] data;
           }
         }
       }
