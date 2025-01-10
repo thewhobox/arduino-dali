@@ -72,3 +72,4 @@ void loop() {
 |DALI_NO_COMMISSIONING|Exclude commissioning Code|-|-|
 |DALI_DONT_EXPORT|Don`t automaticly export a Dali instance|-|-|
 |DALI_NO_COLLISSION_CHECK|Remove collission check if you are the only master (use with caution)|-|-|
+|DALI_USE_GENERIC|Use the generic DaliBus Class.|-|-|

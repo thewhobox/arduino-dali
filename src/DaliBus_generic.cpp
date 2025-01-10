@@ -14,8 +14,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA 02110-1301  USA
 */
-
 #include "DaliBus.h"
+#ifdef DALI_USE_GENERIC
+
+#include "DaliBus_generic.h"
 
 #ifdef DALI_TIMER
 #if defined(ARDUINO_ARCH_RP2040)
@@ -356,3 +358,4 @@ void DaliBusClass::pinchangeISR() {
 }
 
 DaliBusClass DaliBus;
+#endif

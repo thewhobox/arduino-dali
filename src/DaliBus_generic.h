@@ -1,0 +1,140 @@
+#pragma once
+
+/***********************************************************************
+ * This library is free software; you can redistribute it and/or       *
+ * modify it under the terms of the GNU Lesser General Public          *
+ * License as published by the Free Software Foundation; either        *
+ * version 2.1 of the License, or (at your option) any later version.  *
+ *                                                                     *
+ * This library is distributed in the hope that it will be useful,     *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of      *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU   *
+ * Lesser General Public License for more details.                     *
+ *                                                                     *
+ * You should have received a copy of the GNU Lesser General Public    *
+ * License along with this library; if not, write to the Free Software *
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,          *
+ * MA 02110-1301  USA                                                  *
+ ***********************************************************************/
+
+/**
+ * @file DaliBus.h
+ * @brief DALI low level interface
+ *
+ * This file contains the low level part of the Dali library
+ *
+ * @author Hubert Nusser
+ * @date 2019-05-14
+ */
+#include "DaliBus.h"
+#ifdef DALI_USE_GENERIC
+
+#include "Arduino.h"
+
+#include "TimerInterrupt_Generic.h"
+
+#ifndef DALI_NO_TIMER
+  #ifndef DALI_TIMER
+    #warning DALI_TIMER not set; default will be set (0)
+    #define DALI_TIMER 0
+  #endif
+  #ifdef ARDUINO_ARCH_RP2040
+  #if DALI_TIMER < 0 || DALI_TIMER > 3
+    #error TIMER has invalid value (valid values: 0-3)
+  #endif
+  #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+  #if DALI_TIMER < 0 || DALI_TIMER > 1
+    #error TIMER has invalid value (valid values: 0-1)
+  #endif
+  #elif defined(ARDUINO_ARCH_AVR)
+  #if DALI_TIMER < 1 || DALI_TIMER > 3
+    #error TIMER has invalid value (valid values: 1-3)
+  #endif
+  #endif
+#else
+  #warning DALI_TIMER not set; make sure to call DaliBusClass::timerISR
+#endif
+
+const int DALI_BAUD = 1200;
+const unsigned long DALI_TE = 417;
+const unsigned long DALI_TE_MIN = ( 80 * DALI_TE) / 100;                 // 333us
+const unsigned long DALI_TE_MAX = (120 * DALI_TE) / 100;                 // 500us
+
+#define isDeltaWithinTE(delta) (DALI_TE_MIN <= delta && delta <= DALI_TE_MAX)
+#define isDeltaWithin2TE(delta) (2*DALI_TE_MIN <= delta && delta <= 2*DALI_TE_MAX)
+#if defined(ARDUINO_ARCH_RP2040)
+  #define getBusLevel (activeLow ? !gpio_get(rxPin) : gpio_get(rxPin))
+  #define setBusLevel(level) gpio_put(txPin, (activeLow ? !level : level)); txBusLevel = level;
+#elif defined(ARDUINO_ARCH_ESP32)
+  #define getBusLevel (activeLow ? !(DaliBus.fastRead(rxPin)) : DaliBus.fastRead(rxPin))
+  #define setBusLevel(level) DaliBus.fastWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
+#elif defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_ARCH_STM32)
+  #define getBusLevel (activeLow ? !digitalRead(rxPin) : digitalRead(rxPin))
+  #define setBusLevel(level) digitalWrite(txPin, (activeLow ? !level : level)); txBusLevel = level;
+#else
+  #error not supported Hardware
+#endif
+
+class DaliBusClass {
+  public:
+    void begin(byte tx_pin, byte rx_pin, bool active_low = true);
+    daliReturnValue sendRaw(const byte * message, uint8_t bits);
+
+    int getLastResponse();
+
+#ifdef ARDUINO_ARCH_ESP32
+    void fastWrite(uint8_t pin, uint8_t value)
+    {
+      if(value)
+        GPIO.out_w1ts = ((uint32_t)1 << pin);
+      else
+        GPIO.out_w1tc = ((uint32_t)1 << pin);
+    }
+    bool fastRead(uint8_t pin)
+    {
+      return (GPIO.in >> pin) & 0b1;
+    }
+#endif
+
+    bool busIsIdle();
+    volatile byte busIdleCount;
+
+    void timerISR();
+    void pinchangeISR();
+    EventHandlerReceivedDataFuncPtr receivedCallback;
+    EventHandlerActivityFuncPtr activityCallback;
+    EventHandlerErrorFuncPtr errorCallback;
+
+    //TODO remove temp
+    bool tempBusLevel = false;
+    uint16_t tempDelta = 0;
+
+  protected:
+    byte txPin, rxPin;
+    bool activeLow;
+    byte txMessage[4];
+    uint8_t txLength;
+
+    enum busStateEnum {
+      TX_START_1ST, TX_START_2ND,
+      TX_BIT_1ST, TX_BIT_2ND,
+      TX_STOP_1ST, TX_STOP,
+      IDLE,
+      SHORT,
+      WAIT_RX, RX_START, RX_BIT, RX_STOP
+    };
+    volatile busStateEnum busState;
+    volatile byte txPos;
+    volatile byte txBusLevel;
+    volatile byte txCollision;
+
+    volatile unsigned long rxLastChange;
+    volatile byte rxMessage;
+    volatile uint32_t rxCommand;
+    volatile char rxLength;
+    volatile char rxError;
+    volatile bool rxIsResponse = false;
+};
+
+extern DaliBusClass DaliBus;
+#endif
