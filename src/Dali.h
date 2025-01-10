@@ -61,6 +61,16 @@ class DaliClass {
       * is used by most DALI hardware interfaces. The same logic applies to the rx pin. */
     void begin(byte tx_pin, byte rx_pin, bool active_low = true);
 
+// TODO make these functions obsolete
+    /** Calls the busIsIdle function of the DaliBusClass */
+    bool busIsIdle();
+
+    /** Calls the busIdleCount function of the DaliBusClass */
+    int busIdleCount();
+
+    /** Calls the getLastResonse function of the DaliBusClass */
+    int busGetLastResponse();
+
     /** Send a direct arc level command
       * @param  address    destination address
       * @param  value      arc level
@@ -148,6 +158,9 @@ class DaliClass {
     /** Set Callback for activity. */
     void setActivityCallback(EventHandlerActivityFuncPtr callback);
 
+    /** Set Callback for errors */
+    void setErrorCallback(EventHandlerErrorFuncPtr callback);
+
 #ifndef DALI_NO_COMMISSIONING
     /** Initiate commissioning of all DALI ballasts
       * @param startAddress  address starting short address assignment from
@@ -182,6 +195,9 @@ class DaliClass {
     };
     commissionStateEnum commissionState = COMMISSION_OFF; /**< current state of commissioning state machine */
 #endif
+
+  private:
+    DaliBusClass daliBus;
 
   protected:
     /** Prepares a byte array for sending DALI commands */

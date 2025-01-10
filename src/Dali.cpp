@@ -34,32 +34,49 @@
 */
 
 void DaliClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
-  DaliBus.begin(tx_pin, rx_pin, active_low);
+  daliBus.begin(tx_pin, rx_pin, active_low);
+}
+
+bool DaliClass::busIsIdle() {
+  return daliBus.busIsIdle();
+}
+
+int DaliClass::busIdleCount() {
+  return daliBus.busIdleCount;
+}
+
+int DaliClass::busGetLastResponse() {
+  return daliBus.getLastResponse();
 }
 
 void DaliClass::setCallback(EventHandlerReceivedDataFuncPtr callback)
 {
-  DaliBus.receivedCallback = callback;
+  daliBus.receivedCallback = callback;
 }
 
 void DaliClass::setActivityCallback(EventHandlerActivityFuncPtr callback)
 {
-  DaliBus.activityCallback = callback;
+  daliBus.activityCallback = callback;
+}
+
+void DaliClass::setErrorCallback(EventHandlerErrorFuncPtr callback)
+{
+  daliBus.errorCallback = callback;
 }
 
 int DaliClass::sendRawWait(const byte * message, uint8_t bits, byte timeout) {
   unsigned long time = millis();
   int result;
 
-  while (!DaliBus.busIsIdle())
+  while (!daliBus.busIsIdle())
     if (millis() - time > timeout) return DALI_READY_TIMEOUT;
 
-  result = DaliBus.sendRaw(message, bits);
+  result = daliBus.sendRaw(message, bits);
 
-  while (!DaliBus.busIsIdle())
+  while (!daliBus.busIsIdle())
     if (millis() - time > timeout) return DALI_READY_TIMEOUT;
 
-  return (result != DALI_SENT) ? result : DaliBus.getLastResponse();
+  return (result != DALI_SENT) ? result : daliBus.getLastResponse();
 }
 
 byte * DaliClass::prepareCmd(byte * message, byte address, byte command, byte type, byte selector) {
@@ -77,7 +94,7 @@ daliReturnValue DaliClass::sendArcBroadcast(byte value) {
 
 daliReturnValue DaliClass::sendArc(byte address, byte value, byte addr_type) {
   byte message[2];
-  return DaliBus.sendRaw(prepareCmd(message, address, value, addr_type, 0), 16);
+  return daliBus.sendRaw(prepareCmd(message, address, value, addr_type, 0), 16);
 }
 
 daliReturnValue DaliClass::sendArcBroadcastWait(byte value, byte timeout) {
@@ -95,7 +112,7 @@ daliReturnValue DaliClass::sendCmdBroadcast(DaliCmd command) {
 
 daliReturnValue DaliClass::sendCmd(byte address, DaliCmd command, byte addr_type) {
   byte message[2];
-  return DaliBus.sendRaw(prepareCmd(message, address, command, addr_type, 1), 16);
+  return daliBus.sendRaw(prepareCmd(message, address, command, addr_type, 1), 16);
 }
 
 int DaliClass::sendCmdBroadcastWait(DaliCmd command, byte timeout) {
@@ -129,7 +146,7 @@ daliReturnValue DaliClass::sendSpecialCmd(DaliSpecialCmd cmd, byte value) {
   word command = static_cast<word>(cmd);
   if (command < 256 || command > 287) return DALI_INVALID_PARAMETER;
   byte message[2];
-  return DaliBus.sendRaw(prepareSpecialCmd(message, command, value), 16);
+  return daliBus.sendRaw(prepareSpecialCmd(message, command, value), 16);
 }
 
 int DaliClass::sendSpecialCmdWait(word command, byte value, byte timeout) {
@@ -153,7 +170,7 @@ void DaliClass::commission_tick() {
   static byte searchIterations;
   static unsigned long currentSearchAddress;
 
-  if (DaliBus.busIsIdle()) { // wait until bus is idle
+  if (daliBus.busIsIdle()) { // wait until bus is idle
     switch (commissionState) {
       case COMMISSION_INIT:
         sendSpecialCmd(DaliSpecialCmd::INITIALISE, (commissionOnlyNew ? 255 : 0));
@@ -184,7 +201,7 @@ void DaliClass::commission_tick() {
         commissionState = COMMISSION_RANDOMWAIT;
         break;
       case COMMISSION_RANDOMWAIT:  // wait 100ms for random address to generate
-        if (DaliBus.busIdleCount >= 255)
+        if (daliBus.busIdleCount >= 255)
           commissionState = COMMISSION_STARTSEARCH;
         break;
       case COMMISSION_STARTSEARCH:
@@ -208,7 +225,7 @@ void DaliClass::commission_tick() {
         break;
       case COMMISSION_CHECKFOUND:
         {  // create scope for response variable
-        int response = DaliBus.getLastResponse();
+        int response = daliBus.getLastResponse();
         if (response != DALI_RX_EMPTY)
           if (searchIterations >= 24) // ballast found
             commissionState = COMMISSION_PROGRAMSHORT;
@@ -239,7 +256,7 @@ void DaliClass::commission_tick() {
         commissionState = COMMISSION_VERIFYSHORTRESPONSE;
         break;
       case COMMISSION_VERIFYSHORTRESPONSE:
-        if (DaliBus.getLastResponse() == 0xFF) {
+        if (daliBus.getLastResponse() == 0xFF) {
           nextShortAddress++;
           commissionState = COMMISSION_WITHDRAW;
         } else
