@@ -136,5 +136,4 @@ class DaliBusClass {
     volatile bool rxIsResponse = false;
 };
 
-extern DaliBusClass DaliBus;
 #endif

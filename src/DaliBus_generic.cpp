@@ -18,11 +18,18 @@
 #ifdef DALI_USE_GENERIC
 
 #include "DaliBus_generic.h"
+#include "OpenKNX.h"
+
+
+DaliBusClass *_instance0;
+DaliBusClass *_instance1;
+uint8_t _instanceCount = 0;
+
 
 #ifdef DALI_TIMER
 #if defined(ARDUINO_ARCH_RP2040)
 RPI_PICO_Timer timer2(DALI_TIMER);
-void __isr __time_critical_func(DaliBus_wrapper_pinchangeISR)() { DaliBus.pinchangeISR(); }
+//void __isr __time_critical_func(DaliBus_wrapper_pinchangeISR)() { /*DaliBus.pinchangeISR();*/ }
 #elif defined(ARDUINO_ARCH_ESP32)
 ESP32Timer timer2(DALI_TIMER);
 void IRAM_ATTR DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
@@ -59,14 +66,36 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   // RX pin setup
   pinMode(rxPin, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(rxPin), DaliBus_wrapper_pinchangeISR, CHANGE);
+  if(_instanceCount == 0) {
+    _instance0 = this;
+  } else if(_instanceCount == 1) {
+    _instance1 = this;
+  } else {
+    logError("DaliBus", "Only two instances of DaliBus are supported");
+  }
 
+  if(_instanceCount == 0) {
+    attachInterrupt(digitalPinToInterrupt(rxPin), []() { _instance0->pinchangeISR(); }, CHANGE);
+  } else {
+    attachInterrupt(digitalPinToInterrupt(rxPin), []() { _instance1->pinchangeISR(); }, CHANGE);
+  }
+
+  logInfo("DaliBus", "Timer %i", DALI_TIMER);
   #ifdef DALI_TIMER
+  logInfo("DaliBus", "Timer %i", DALI_TIMER);
   #if defined(ARDUINO_ARCH_RP2040)
-  timer2.attachInterrupt(2398, [](repeating_timer *t) -> bool {
-    DaliBus.timerISR();
-    return true;
-  });
+  logInfo("DaliBus", "Timer %i", DALI_TIMER);
+  if(_instanceCount == 0) {
+    timer2.attachInterrupt(2398, +[](repeating_timer *t) -> bool {
+      _instance0->timerISR();
+      return true;
+    });
+  } else {
+    timer2.attachInterrupt(2398, +[](repeating_timer *t) -> bool {
+      _instance1->timerISR();
+      return true;
+    });
+  }
   #elif defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
   timer2.attachInterrupt(2398, +[](void * timer) -> bool {
     DaliBus.timerISR();
@@ -83,6 +112,9 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   });
   #endif
   #endif
+
+  
+  _instanceCount++;
 }
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {
@@ -356,6 +388,4 @@ void DaliBusClass::pinchangeISR() {
       break;  // ignore, we didn't expect rx
   }
 }
-
-DaliBusClass DaliBus;
 #endif
