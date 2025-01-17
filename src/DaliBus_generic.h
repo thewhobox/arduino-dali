@@ -77,7 +77,7 @@ const unsigned long DALI_TE_MAX = (120 * DALI_TE) / 100;                 // 500u
 
 class DaliBusClass {
   public:
-    void begin(byte tx_pin, byte rx_pin, bool active_low = true);
+    int begin(byte tx_pin, byte rx_pin, bool active_low = true);
     daliReturnValue sendRaw(const byte * message, uint8_t bits);
 
     int getLastResponse();

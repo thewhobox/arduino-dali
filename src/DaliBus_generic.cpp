@@ -51,7 +51,7 @@ void DaliBus_wrapper_pinchangeISR() { DaliBus.pinchangeISR(); }
 #endif
 #endif
 
-void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
+int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   txPin = tx_pin;
   rxPin = rx_pin;
   activeLow = active_low;
@@ -113,8 +113,8 @@ void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
   #endif
   #endif
 
-  
   _instanceCount++;
+  return 0;
 }
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits) {

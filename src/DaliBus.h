@@ -17,11 +17,18 @@ typedef enum daliReturnValue {
   DALI_CANT_BE_HIGH = -10,
   DALI_INVALID_STARTBIT = -11,
   DALI_ERROR_TIMING = -12,
+  DALI_TX_ERROR = -13,
 } daliReturnValue;
 
 typedef void (*EventHandlerReceivedDataFuncPtr)(uint8_t *data, uint8_t bits);
 typedef void (*EventHandlerActivityFuncPtr)();
 typedef void (*EventHandlerErrorFuncPtr)(daliReturnValue errorCode);
+
+#define DALI_ERR_CREATE_TX -1
+#define DALI_ERR_CREATE_RX -2
+#define DALI_ERR_ENABLE_TX -3
+#define DALI_ERR_ENABLE_RX -4
+#define DALI_ERR_CREATE_ENCODER -5
 
 
 #ifdef DALI_USE_GENERIC

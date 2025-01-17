@@ -20,13 +20,114 @@
 
 #include "DaliBus_esp32.h"
 
-void DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
-{
+static rmt_transmit_config_t transmit_config;
 
+static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
+                               size_t symbols_written, size_t symbols_free,
+                               rmt_symbol_word_t *symbols, bool *done, void *arg)
+{
+    // We need a minimum of 18 symbol spaces to encode a command.
+    // Symbol spaces = 1 start bit + 16 bit command + 2 stop bits
+    // Commands with more than 2 Bytes cannot be handled.
+    if (symbols_free < 18) {
+        return 0;
+    }
+
+    // Send a start bit first.
+    if (symbols_written == 0) {
+        symbols[0] = DALI_SYMBOL_ONE;
+        return 1;
+    }
+
+    // We can calculate where in the data we are from the symbol pos.
+    // Divide symbols_written by 8 as each bit translates to one symbol.
+    size_t data_pos = (symbols_written - 1) / 8;
+    uint8_t *data_bytes = (uint8_t*)data;
+    if (data_pos < data_size) {
+        // Encode a byte
+        size_t symbol_pos = 0;
+        for (int bitmask = 0x80; bitmask != 0; bitmask >>= 1) {
+            if (data_bytes[data_pos]&bitmask) {
+                symbols[symbol_pos++] = DALI_SYMBOL_ONE;
+            } else {
+                symbols[symbol_pos++] = DALI_SYMBOL_ZERO;
+            }
+        }
+        // We're done; we should have written 16 symbols.
+        return symbol_pos;
+    } else {
+        // Command has been encoded.
+        // Add stop bits, and we're done.
+        symbols[0] = DALI_SYMBOL_STOP;
+        *done = 1; // Indicate end of the transaction.
+        return 1;  // We only wrote one symbol
+    }
+}
+
+int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
+{
+    dali_rxChannel = NULL;
+    dali_rxChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK;
+    dali_rxChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
+    dali_rxChannelConfig.mem_block_symbols = 64; // amount of RMT symbols that the channel can store at a time
+    dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
+    dali_rxChannelConfig.flags.invert_in = true;
+    if(rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel) != ESP_OK)
+        return DALI_ERR_CREATE_RX;
+        
+    if(rmt_enable(dali_rxChannel) != ESP_OK)
+        return DALI_ERR_ENABLE_RX;
+
+    dali_txChannel = NULL;
+    dali_txChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK; // select source clock
+    dali_txChannelConfig.gpio_num = (gpio_num_t)tx_pin;
+    dali_txChannelConfig.mem_block_symbols = 64;
+    dali_txChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
+    dali_txChannelConfig.trans_queue_depth = 3; // set the number of transactions that can be pending in the background
+    dali_txChannelConfig.flags.invert_out = true;
+    if(rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel) != ESP_OK)
+        return DALI_ERR_CREATE_TX;
+
+    dali_txChannelEncoder = NULL;
+    const rmt_simple_encoder_config_t simple_encoder_cfg = {
+        .callback = dali_rmt_tx_encoder_cb
+        //Note we don't set min_chunk_size here as the default of 64 is good enough.
+    };
+    if(rmt_new_simple_encoder(&simple_encoder_cfg, &dali_txChannelEncoder) != ESP_OK)
+        return DALI_ERR_CREATE_ENCODER;
+
+    if(rmt_enable(dali_txChannel) != ESP_OK)
+        return DALI_ERR_ENABLE_TX;
+
+    transmit_config = (rmt_transmit_config_t) {
+        .loop_count = 0
+    };
+
+    return 0;
 }
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
 {
+    isSending = true;
+    esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, messages, bits / 8, &transmit_config);
+    if(error != ESP_OK)
+    {
+        isSending = false;
+        // TODO add more handling of error
+        return DALI_TX_ERROR;
+    }
+    error = rmt_tx_wait_all_done(dali_txChannel, 100);
+    if(error != ESP_OK)
+    {
+        isSending = false;
+        if(error == ESP_ERR_INVALIF_ARG)
+            return DALI_INVALID_PARAMETER;
+        else if(error == ESP_ERR_TIMEOUT)
+            return DALI_SEND_TIMEOUT;
+        return DALI_SEND_TIMEOUT;
+    }
+
+    isSending = false;
     return DALI_NO_ERROR;
 }
 
@@ -37,6 +138,6 @@ int DaliBusClass::getLastResponse()
 
 bool DaliBusClass::busIsIdle()
 {
-    return true;
+    return !isSending;
 }
 #endif
