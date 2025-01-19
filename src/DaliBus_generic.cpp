@@ -80,11 +80,8 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
     attachInterrupt(digitalPinToInterrupt(rxPin), []() { _instance1->pinchangeISR(); }, CHANGE);
   }
 
-  logInfo("DaliBus", "Timer %i", DALI_TIMER);
   #ifdef DALI_TIMER
-  logInfo("DaliBus", "Timer %i", DALI_TIMER);
   #if defined(ARDUINO_ARCH_RP2040)
-  logInfo("DaliBus", "Timer %i", DALI_TIMER);
   if(_instanceCount == 0) {
     timer2.attachInterrupt(2398, +[](repeating_timer *t) -> bool {
       _instance0->timerISR();
