@@ -122,7 +122,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_txChannelConfig.mem_block_symbols = 64;
     dali_txChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
     dali_txChannelConfig.trans_queue_depth = 3; // set the number of transactions that can be pending in the background
-    dali_txChannelConfig.flags.invert_out = true;
+    dali_txChannelConfig.flags.invert_out = false;
     if(rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel) != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
