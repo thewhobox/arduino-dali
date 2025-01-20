@@ -19,7 +19,6 @@
 //#ifdef DALI_USE_ESP32
 
 #include "DaliBus_esp32.h"
-#include "OpenKNX.h"
 
 static rmt_transmit_config_t transmit_config;
 
