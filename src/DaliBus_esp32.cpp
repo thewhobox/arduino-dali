@@ -122,7 +122,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_txChannelConfig.mem_block_symbols = 64;
     dali_txChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
     dali_txChannelConfig.trans_queue_depth = 3; // set the number of transactions that can be pending in the background
-    dali_txChannelConfig.flags.invert_out = false;
+    dali_txChannelConfig.flags.invert_out = true;
     if(rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel) != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
@@ -153,7 +153,6 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     transmit_config = (rmt_transmit_config_t) {
         .loop_count = 0
     };
-
     xTaskCreateUniversal(dali_rmt_rx_task, "daliRX", 2048, this, 0, nullptr, 0);
 
     return 0;
@@ -172,6 +171,7 @@ QueueHandle_t DaliBusClass::getQueueHandle()
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
 {
     isSending = true;
+
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
     if(error != ESP_OK)
     {
