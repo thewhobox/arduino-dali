@@ -59,7 +59,7 @@ class DaliClass {
       * driven active-low, meaning with the µC tx pin being low the DALI bus will be high (idle). For transmission
       * the µC pin will be set high, which will pull the DALI voltage low. This behaviour
       * is used by most DALI hardware interfaces. The same logic applies to the rx pin. */
-    void begin(byte tx_pin, byte rx_pin, bool active_low = true);
+    int begin(byte tx_pin, byte rx_pin, bool active_low = true);
 
 // TODO make these functions obsolete
     /** Calls the busIsIdle function of the DaliBusClass */
