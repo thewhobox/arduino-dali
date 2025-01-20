@@ -33,8 +33,8 @@
   repeat: 32-128(-143), 258, 259, 
 */
 
-void DaliClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
-  daliBus.begin(tx_pin, rx_pin, active_low);
+int DaliClass::begin(byte tx_pin, byte rx_pin, bool active_low) {
+  return daliBus.begin(tx_pin, rx_pin, active_low);
 }
 
 bool DaliClass::busIsIdle() {
