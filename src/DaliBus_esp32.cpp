@@ -16,11 +16,50 @@
 */
 
 #include "DaliBus.h"
-#ifdef DALI_USE_ESP32
+//#ifdef DALI_USE_ESP32
 
 #include "DaliBus_esp32.h"
+#include "OpenKNX.h"
 
 static rmt_transmit_config_t transmit_config;
+
+static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
+{
+    printf("dali_rmt_rx_callback\r\n");
+    BaseType_t high_task_wakeup = pdFALSE;
+    QueueHandle_t receive_queue = (QueueHandle_t)user_data;
+    // send the received RMT symbols to the parser task
+    xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
+    return high_task_wakeup == pdTRUE;
+}
+
+static void dali_rmt_rx_task(void *arg)
+{
+    DaliBusClass *daliClass = (DaliBusClass *)arg;
+
+    rmt_rx_done_event_data_t rx_data;
+    rmt_symbol_word_t raw_symbols[64];
+    rmt_receive_config_t dali_rxReceiveConfig = (rmt_receive_config_t) {
+        .signal_range_min_ns = DALI_USTONS(2),
+        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+    };
+
+    while(1)
+    {
+
+        esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
+        if(err != ESP_OK)
+        {
+            printf("rmt_receive failed: %d\n", err);
+            continue;
+        }
+
+        if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
+        {
+            printf("Received %d symbols\n", rx_data.num_symbols);
+        }
+    }
+}
 
 static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
                                size_t symbols_written, size_t symbols_free,
@@ -84,9 +123,22 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_txChannelConfig.mem_block_symbols = 64;
     dali_txChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
     dali_txChannelConfig.trans_queue_depth = 3; // set the number of transactions that can be pending in the background
-    dali_txChannelConfig.flags.invert_out = true;
+    dali_txChannelConfig.flags.invert_out = false;
     if(rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel) != ESP_OK)
         return DALI_ERR_CREATE_TX;
+
+    dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+     rmt_rx_event_callbacks_t cbs = {
+        .on_recv_done = dali_rmt_rx_callback,
+    };
+    if(rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue) != ESP_OK);
+        return DALI_ERR_CREATE_RX;
+        
+    // TODO wont work
+    // dali_rxChannelConfig = (rmt_receive_config_t) {
+    //     .signal_range_min_ns = DALI_USTONS(2),
+    //     .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+    // };
 
     dali_txChannelEncoder = NULL;
     const rmt_simple_encoder_config_t simple_encoder_cfg = {
@@ -103,13 +155,25 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         .loop_count = 0
     };
 
+    xTaskCreateUniversal(dali_rmt_rx_task, "daliRX", 2048, this, 0, nullptr, 0);
+
     return 0;
+}
+
+rmt_channel_handle_t DaliBusClass::getRxHandle()
+{
+    return dali_rxChannel;
+}
+
+QueueHandle_t DaliBusClass::getQueueHandle()
+{
+    return dali_rxChannelQueue;
 }
 
 daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
 {
     isSending = true;
-    esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, messages, bits / 8, &transmit_config);
+    esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
     if(error != ESP_OK)
     {
         isSending = false;
@@ -120,7 +184,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     if(error != ESP_OK)
     {
         isSending = false;
-        if(error == ESP_ERR_INVALIF_ARG)
+        if(error == ESP_ERR_INVALID_ARG)
             return DALI_INVALID_PARAMETER;
         else if(error == ESP_ERR_TIMEOUT)
             return DALI_SEND_TIMEOUT;
@@ -140,4 +204,4 @@ bool DaliBusClass::busIsIdle()
 {
     return !isSending;
 }
-#endif
+//#endif
