@@ -34,8 +34,10 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
 
 static void dali_rmt_rx_task(void *arg)
 {
+    printf("dali_rmt_rx_task\r\n");
     DaliBusClass *daliClass = (DaliBusClass *)arg;
 
+    printf("daliClass: %p\r\n", daliClass);
     rmt_rx_done_event_data_t rx_data;
     rmt_symbol_word_t raw_symbols[64];
     rmt_receive_config_t dali_rxReceiveConfig = (rmt_receive_config_t) {
@@ -43,9 +45,9 @@ static void dali_rmt_rx_task(void *arg)
         .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
     };
 
+    printf("dali_rxChannel: %p\r\n", daliClass->getRxHandle());
     while(1)
     {
-
         esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
         if(err != ESP_OK)
         {
