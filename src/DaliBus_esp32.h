@@ -62,6 +62,8 @@ public:
 	// TODO remove temp
 	bool tempBusLevel = false;
 	uint16_t tempDelta = 0;
+	rmt_symbol_word_t rawSymbols[64];
+	rmt_receive_config_t dali_rxReceiveConfig;
 
 
 private:

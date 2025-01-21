@@ -31,6 +31,7 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     // xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
 
     DaliBusClass *daliClass = (DaliBusClass *)user_data;
+    printf("daliClass:                       %p\r\n", daliClass);
     gpio_intr_enable(daliClass->getRxPin());
     return high_task_wakeup == pdTRUE;
 }
@@ -74,18 +75,15 @@ gpio_num_t DaliBusClass::getRxPin()
 
 void IRAM_ATTR onDALIFrameStart(void* arg)
 {
-    DaliBusClass *daliClass = (DaliBusClass *)arg;
     printf("onDALIFrameStart\r\n");
+    printf("arg:                             %p\r\n", arg);
+    DaliBusClass *daliClass = (DaliBusClass *)arg;
+    printf("daliClass:                       %p\r\n", daliClass);
     esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
     printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
 
-    rmt_rx_done_event_data_t rx_data;
-    rmt_symbol_word_t raw_symbols[64];
-    rmt_receive_config_t dali_rxReceiveConfig = (rmt_receive_config_t) {
-        .signal_range_min_ns = DALI_USTONS(2),
-        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
-    };
-    resp = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
+    resp = rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
+    printf("rmt_receive:                     %d (%s)\n", resp, esp_err_to_name(resp));
 }
 
 static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
@@ -146,12 +144,6 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
-    // TODO wont work
-    // dali_rxChannelConfig = (rmt_receive_config_t) {
-    //     .signal_range_min_ns = DALI_USTONS(2),
-    //     .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
-    // };
-
     dali_txChannelEncoder = NULL;
     const rmt_simple_encoder_config_t simple_encoder_cfg = {
         .callback = dali_rmt_tx_encoder_cb
@@ -171,6 +163,12 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         .loop_count = 0
     };
 
+    
+    dali_rxReceiveConfig = (rmt_receive_config_t) {
+        .signal_range_min_ns = DALI_USTONS(2),
+        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+    };
+
     dali_rxChannel = NULL;
     dali_rxChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK;
     dali_rxChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
@@ -183,7 +181,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         return DALI_ERR_CREATE_RX;
     
     dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
-    printf("dali_rxChannelQueue:              %p\n", dali_rxChannelQueue);
+    printf("dali_rxChannelQueue:             %p\n", dali_rxChannelQueue);
      rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = dali_rmt_rx_callback,
     };
@@ -219,6 +217,8 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
     resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, onDALIFrameStart, this);
     printf("gpio_isr_handler_add:            %d (%s)\n", resp, esp_err_to_name(resp));
+
+    printf("daliClass:                       %p\n", this);
 
     printf("DaliBus initialized\n");
     return 0;
