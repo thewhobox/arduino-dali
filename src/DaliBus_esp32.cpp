@@ -26,9 +26,9 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
 {
     printf("dali_rmt_rx_callback\r\n");
     BaseType_t high_task_wakeup = pdFALSE;
-    QueueHandle_t receive_queue = (QueueHandle_t)user_data;
-    // send the received RMT symbols to the parser task
-    xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
+    // QueueHandle_t receive_queue = (QueueHandle_t)user_data;
+    // // send the received RMT symbols to the parser task
+    // xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
     return high_task_wakeup == pdTRUE;
 }
 
@@ -57,10 +57,10 @@ static void dali_rmt_rx_task(void *arg)
             continue;
         }
 
-        if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
-        {
-            printf("Received %d symbols\n", rx_data.num_symbols);
-        }
+        // if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
+        // {
+        //     printf("Received %d symbols\n", rx_data.num_symbols);
+        // }
     }
 }
 
