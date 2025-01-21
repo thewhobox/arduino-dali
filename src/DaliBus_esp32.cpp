@@ -104,22 +104,6 @@ static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
 
 int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 {
-    dali_rxChannel = NULL;
-    dali_rxChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK;
-    dali_rxChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
-    dali_rxChannelConfig.mem_block_symbols = 64; // amount of RMT symbols that the channel can store at a time
-    dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
-    dali_rxChannelConfig.flags.invert_in = true;
-    esp_err_t resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
-    printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
-    if(resp != ESP_OK)
-        return DALI_ERR_CREATE_RX;
-    
-    resp = rmt_enable(dali_rxChannel);
-    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
-    if(resp != ESP_OK)
-        return DALI_ERR_ENABLE_RX;
-
     dali_txChannel = NULL;
     dali_txChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK; // select source clock
     dali_txChannelConfig.gpio_num = (gpio_num_t)tx_pin;
@@ -165,6 +149,24 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     transmit_config = (rmt_transmit_config_t) {
         .loop_count = 0
     };
+
+    dali_rxChannel = NULL;
+    dali_rxChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK;
+    dali_rxChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
+    dali_rxChannelConfig.mem_block_symbols = 64; // amount of RMT symbols that the channel can store at a time
+    dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
+    dali_rxChannelConfig.flags.invert_in = true;
+    esp_err_t resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
+    printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
+    if(resp != ESP_OK)
+        return DALI_ERR_CREATE_RX;
+    
+    resp = rmt_enable(dali_rxChannel);
+    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
+    if(resp != ESP_OK)
+        return DALI_ERR_ENABLE_RX;
+
+
     xTaskCreateUniversal(dali_rmt_rx_task, "daliRX", 2048, this, 0, nullptr, 0);
 
     printf("DaliBus initialized\n");
