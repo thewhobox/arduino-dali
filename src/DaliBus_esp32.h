@@ -53,6 +53,7 @@ public:
 
 	rmt_channel_handle_t getRxHandle();
 	QueueHandle_t getQueueHandle();
+	gpio_num_t getRxPin();
 
 	EventHandlerReceivedDataFuncPtr receivedCallback;
 	EventHandlerActivityFuncPtr activityCallback;

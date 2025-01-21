@@ -29,6 +29,9 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     // QueueHandle_t receive_queue = (QueueHandle_t)user_data;
     // // send the received RMT symbols to the parser task
     // xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
+
+    DaliBusClass *daliClass = (DaliBusClass *)user_data;
+    gpio_intr_enable(daliClass->getRxPin());
     return high_task_wakeup == pdTRUE;
 }
 
@@ -45,9 +48,9 @@ static void dali_rmt_rx_task(void *arg)
         .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
     };
 
-    printf("dali_rxChannel: %p\r\n", daliClass->getRxHandle());
     while(1)
     {
+        printf("dali_rxChannel: %p\r\n", daliClass->getRxHandle());
         printf("Call receiving...\n");
         esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
         printf("rmt_receive:                      %d (%s)\n", err, esp_err_to_name(err));
@@ -62,6 +65,27 @@ static void dali_rmt_rx_task(void *arg)
         //     printf("Received %d symbols\n", rx_data.num_symbols);
         // }
     }
+}
+
+gpio_num_t DaliBusClass::getRxPin()
+{
+    return dali_rxChannelConfig.gpio_num;
+}
+
+void IRAM_ATTR onDALIFrameStart(void* arg)
+{
+    DaliBusClass *daliClass = (DaliBusClass *)arg;
+    printf("onDALIFrameStart\r\n");
+    esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
+    printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
+
+    rmt_rx_done_event_data_t rx_data;
+    rmt_symbol_word_t raw_symbols[64];
+    rmt_receive_config_t dali_rxReceiveConfig = (rmt_receive_config_t) {
+        .signal_range_min_ns = DALI_USTONS(2),
+        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+    };
+    resp = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
 }
 
 static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
@@ -139,7 +163,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         return DALI_ERR_CREATE_ENCODER;
 
     resp = rmt_enable(dali_txChannel);
-    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
+    printf("rmt_enable (tx):                 %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_TX;
 
@@ -163,22 +187,38 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
      rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = dali_rmt_rx_callback,
     };
-    resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue);
+    resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, this);
     printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
         
     resp = rmt_enable(dali_rxChannel);
-    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
+    printf("rmt_enable (rx):                 %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
-    TaskHandle_t rxTaskHandle;
-    printf("daliRxChannel:                   %p\n", dali_rxChannel);
-    printf("daliClass:                       %p\n", this);
-    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, &rxTaskHandle);
-    printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
-    printf("rxTaskHandle:                    %p\n", rxTaskHandle);
+    // TaskHandle_t rxTaskHandle;
+    // printf("daliRxChannel:                   %p\n", dali_rxChannel);
+    // printf("daliClass:                       %p\n", this);
+    // BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, &rxTaskHandle);
+    // printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
+    // printf("rxTaskHandle:                    %p\n", rxTaskHandle);
+
+    gpio_config_t io_conf = {};
+    // Interrupt happens
+    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = BIT64(dali_rxChannelConfig.gpio_num);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+    // Configure the pin
+    resp = gpio_config(&io_conf);
+    printf("gpio_config:                     %d (%s)\n", resp, esp_err_to_name(resp));
+    // Configure the interrupt
+    resp = gpio_install_isr_service(0 /* No flags */); // Call this only once !!
+    printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
+    resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, onDALIFrameStart, this);
+    printf("gpio_isr_handler_add:            %d (%s)\n", resp, esp_err_to_name(resp));
 
     printf("DaliBus initialized\n");
     return 0;
