@@ -220,7 +220,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     resp = gpio_install_isr_service(0 /* No flags */); // Call this only once !!
     printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
     resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, onDALIFrameStart, this);
-    printf("gpio_isr_handler_add:            %d (%s)\n", resp, esp_err_to_name(resp));
+    printf("gpio_isr_handler_add:            %d (%s) - %d\n", resp, esp_err_to_name(resp), dali_rxChannelConfig.gpio_num);
 
     printf("daliClass:                       %p\n", this);
 
