@@ -45,7 +45,7 @@ static void dali_rmt_rx_task(void *arg)
         .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
     };
 
-    printf("dali_rxChannel: %p\r\n", daliClass->getRxHandle());
+    printf("dali_rxChannel: %p\r\n", &daliClass->getRxHandle());
     while(1)
     {
         esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
@@ -171,6 +171,8 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         return DALI_ERR_ENABLE_RX;
 
     TaskHandle_t rxTaskHandle;
+    printf("daliRxChannel:                   %p\n", &dali_rxChannel);
+    printf("daliClass:                       %p\n", this);
     BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, &rxTaskHandle);
     printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
     printf("rxTaskHandle:                    %p\n", rxTaskHandle);
