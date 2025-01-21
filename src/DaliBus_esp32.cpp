@@ -171,7 +171,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         return DALI_ERR_ENABLE_RX;
 
     TaskHandle_t rxTaskHandle;
-    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, nullptr, &rxTaskHandle);
+    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, &rxTaskHandle);
     printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
     printf("rxTaskHandle:                    %p\n", rxTaskHandle);
 
