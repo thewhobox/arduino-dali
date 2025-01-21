@@ -83,11 +83,11 @@ void IRAM_ATTR onDALIFrameStart(void* arg)
     DaliBusClass *daliClass = (DaliBusClass *)arg;
     printf("daliClass:                       %p\r\n", daliClass);
     printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
-    esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
-    printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
+    // esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
+    // printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
 
-    resp = rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
-    printf("rmt_receive:                     %d (%s)\n", resp, esp_err_to_name(resp));
+    // resp = rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
+    // printf("rmt_receive:                     %d (%s)\n", resp, esp_err_to_name(resp));
 }
 
 static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
@@ -169,8 +169,8 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     
     dali_rxReceiveConfig = (rmt_receive_config_t) {
-        .signal_range_min_ns = DALI_USTONS(2),
-        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+        .signal_range_min_ns = 1250, //DALI_USTONS(2),
+        .signal_range_max_ns = (2000 * 1000), //DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
     };
 
     dali_rxChannel = NULL;
