@@ -49,7 +49,7 @@ static void dali_rmt_rx_task(void *arg)
         esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
         if(err != ESP_OK)
         {
-            printf("rmt_receive failed:              %d (%s)\n", error, esp_err_to_name(error));
+            printf("rmt_receive failed:              %d (%s)\n", err, esp_err_to_name(err));
             continue;
         }
 
@@ -111,12 +111,12 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
     dali_rxChannelConfig.flags.invert_in = true;
     esp_err_t resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
-    printf("rmt_new_rx_channel:              %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
     
     resp = rmt_enable(dali_rxChannel);
-    printf("rmt_enable:                      %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
@@ -128,7 +128,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_txChannelConfig.trans_queue_depth = 3; // set the number of transactions that can be pending in the background
     dali_txChannelConfig.flags.invert_out = false;
     resp = rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel);
-    printf("rmt_new_tx_channel:              %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_new_tx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
@@ -137,7 +137,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         .on_recv_done = dali_rmt_rx_callback,
     };
     resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue);
-    printf("rmt_rx_register_event_callbacks: %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK);
         return DALI_ERR_CREATE_RX;
         
@@ -153,12 +153,12 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         //Note we don't set min_chunk_size here as the default of 64 is good enough.
     };
     resp = rmt_new_simple_encoder(&simple_encoder_cfg, &dali_txChannelEncoder);
-    printf("rmt_new_simple_encoder:          %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_new_simple_encoder:          %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_ENCODER;
 
     resp = rmt_enable(dali_txChannel);
-    printf("rmt_enable:                      %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_TX;
 
