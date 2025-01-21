@@ -170,8 +170,10 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
-
-    xTaskCreateUniversal(dali_rmt_rx_task, "daliRX", 2048, this, 0, nullptr, 0);
+    TaskHandle_t rxTaskHandle;
+    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 3048, this, 0, nullptr, &rxTaskHandle);
+    printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
+    printf("rxTaskHandle:                    %p\n", rxTaskHandle);
 
     printf("DaliBus initialized\n");
     return 0;
