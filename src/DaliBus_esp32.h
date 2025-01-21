@@ -64,6 +64,7 @@ public:
 	uint16_t tempDelta = 0;
 	rmt_symbol_word_t rawSymbols[64];
 	rmt_receive_config_t dali_rxReceiveConfig;
+	uint16_t uniqueId = 0x1234; //4660
 
 
 private:

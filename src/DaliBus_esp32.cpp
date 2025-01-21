@@ -30,6 +30,8 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     // // send the received RMT symbols to the parser task
     // xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
 
+    printf("edata:                           %p\r\n", edata);
+    printf("user_data:                       %p\r\n", user_data);
     DaliBusClass *daliClass = (DaliBusClass *)user_data;
     printf("daliClass:                       %p\r\n", daliClass);
     gpio_intr_enable(daliClass->getRxPin());
@@ -70,6 +72,7 @@ static void dali_rmt_rx_task(void *arg)
 
 gpio_num_t DaliBusClass::getRxPin()
 {
+    printf("getRxPin:                        %d\r\n", dali_rxChannelConfig.gpio_num);
     return dali_rxChannelConfig.gpio_num;
 }
 
@@ -79,6 +82,7 @@ void IRAM_ATTR onDALIFrameStart(void* arg)
     printf("arg:                             %p\r\n", arg);
     DaliBusClass *daliClass = (DaliBusClass *)arg;
     printf("daliClass:                       %p\r\n", daliClass);
+    printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
     esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
     printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
 
