@@ -162,7 +162,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     };
     resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue);
     printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
-    if(resp != ESP_OK);
+    if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
         
     resp = rmt_enable(dali_rxChannel);
