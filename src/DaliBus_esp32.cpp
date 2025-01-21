@@ -105,7 +105,7 @@ static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
 int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 {
     esp_err_t resp = 0;
-    
+
     dali_txChannel = NULL;
     dali_txChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK; // select source clock
     dali_txChannelConfig.gpio_num = (gpio_num_t)tx_pin;
@@ -118,15 +118,6 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
-    dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
-     rmt_rx_event_callbacks_t cbs = {
-        .on_recv_done = dali_rmt_rx_callback,
-    };
-    resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue);
-    printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
-    if(resp != ESP_OK);
-        return DALI_ERR_CREATE_RX;
-        
     // TODO wont work
     // dali_rxChannelConfig = (rmt_receive_config_t) {
     //     .signal_range_min_ns = DALI_USTONS(2),
@@ -163,6 +154,15 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
     
+    dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+     rmt_rx_event_callbacks_t cbs = {
+        .on_recv_done = dali_rmt_rx_callback,
+    };
+    resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, dali_rxChannelQueue);
+    printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
+    if(resp != ESP_OK);
+        return DALI_ERR_CREATE_RX;
+        
     resp = rmt_enable(dali_rxChannel);
     printf("rmt_enable:                      %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
