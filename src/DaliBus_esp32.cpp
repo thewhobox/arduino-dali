@@ -48,7 +48,9 @@ static void dali_rmt_rx_task(void *arg)
     printf("dali_rxChannel: %p\r\n", daliClass->getRxHandle());
     while(1)
     {
+        printf("Call receiving...\n");
         esp_err_t err = rmt_receive(daliClass->getRxHandle(), raw_symbols, sizeof(raw_symbols), &dali_rxReceiveConfig);
+        printf("rmt_receive:                      %d (%s)\n", err, esp_err_to_name(err));
         if(err != ESP_OK)
         {
             printf("rmt_receive failed:              %d (%s)\n", err, esp_err_to_name(err));
@@ -157,6 +159,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         return DALI_ERR_CREATE_RX;
     
     dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    printf("dali_rxChannelQueue:              %p\n", dali_rxChannelQueue);
      rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = dali_rmt_rx_callback,
     };
