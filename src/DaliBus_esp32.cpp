@@ -104,6 +104,8 @@ static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
 
 int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 {
+    esp_err_t resp = 0;
+    
     dali_txChannel = NULL;
     dali_txChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK; // select source clock
     dali_txChannelConfig.gpio_num = (gpio_num_t)tx_pin;
@@ -156,7 +158,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_rxChannelConfig.mem_block_symbols = 64; // amount of RMT symbols that the channel can store at a time
     dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
     dali_rxChannelConfig.flags.invert_in = true;
-    esp_err_t resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
+    resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
     printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
