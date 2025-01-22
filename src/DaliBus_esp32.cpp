@@ -71,6 +71,8 @@ static void dali_rmt_rx_task(void *arg)
 }
 
 static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level) {
+    
+    
     if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
         // short break (1 Te)
@@ -276,7 +278,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     gpio_config_t io_conf = {};
     // Interrupt happens
-    io_conf.intr_type = GPIO_INTR_NEGEDGE; //dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
+    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1UL << rx_pin);
     //io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
