@@ -61,9 +61,10 @@ static void dali_rmt_rx_task(void *arg)
         if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
         {
             printf("Received %d symbols\n", rx_data.num_symbols);
-            uint8_t data[3];
+            //uint8_t data[3];
+            uint32_t data = 0;
             size_t sizeInBits = 0;
-            esp_err_t resp = daliClass->decode_symbols(&rx_data, data, &sizeInBits);
+            esp_err_t resp = daliClass->decode_symbols(&rx_data, &data, &sizeInBits);
             printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), data, sizeInBits);
         }
     }
@@ -123,7 +124,7 @@ static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, ui
     return ESP_OK;
 }
 
-esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint8_t *data, size_t *size)
+esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32_t *data, size_t *size)
 {
     dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
     uint32_t frame = 0;
@@ -140,6 +141,9 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint8_
             break;
         }
     }
+
+    *data = frame;
+    *size = frame_index;
 
     return ESP_OK;
 }
@@ -307,6 +311,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     isSending = true;
 
     printf("Sending %d bits\n", bits);
+    gpio_intr_disable(getRxPin());
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
     printf("rmt_transmit:           %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
@@ -316,6 +321,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
         return DALI_TX_ERROR;
     }
     error = rmt_tx_wait_all_done(dali_txChannel, 100);
+    gpio_intr_enable(getRxPin());
     printf("rmt_tx_wait_all_done:   %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
     {

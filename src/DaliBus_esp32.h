@@ -60,7 +60,7 @@ public:
 	QueueHandle_t getQueueHandle();
 	gpio_num_t getRxPin();
 	void setReceiving();
-	esp_err_t decode_symbols(rmt_rx_done_event_data_t *edata, byte *data, size_t *size);
+	esp_err_t decode_symbols(rmt_rx_done_event_data_t *edata, uint32_t *data, size_t *size);
 
 
 	EventHandlerReceivedDataFuncPtr receivedCallback;
