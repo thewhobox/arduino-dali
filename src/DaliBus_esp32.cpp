@@ -71,6 +71,7 @@ static void dali_rmt_rx_task(void *arg)
 }
 
 static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level) {
+    level = (level == 0) ? 1 : 0;
     if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
         // short break (1 Te)
@@ -251,7 +252,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         .resolution_hz = DALI_RMT_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
         .flags = {
-            .invert_in = false
+            .invert_in = true
         }
     };
     resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
