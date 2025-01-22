@@ -73,7 +73,6 @@ static void dali_rmt_rx_task(void *arg)
 
 gpio_num_t DaliBusClass::getRxPin()
 {
-    printf("getRxPin:                        %d\r\n", dali_rxChannelConfig.gpio_num);
     return dali_rxChannelConfig.gpio_num;
 }
 
