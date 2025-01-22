@@ -242,16 +242,20 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     
     dali_rxReceiveConfig = (rmt_receive_config_t) {
-        .signal_range_min_ns = 1250, //DALI_USTONS(2),
-        .signal_range_max_ns = (2000 * 1000), //DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
+        .signal_range_min_ns = DALI_USTONS(2),
+        .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
     };
 
     dali_rxChannel = NULL;
-    dali_rxChannelConfig.clk_src = RMT_CLK_SRC_REF_TICK;
-    dali_rxChannelConfig.resolution_hz = DALI_RMT_RESOLUTION_HZ;
-    dali_rxChannelConfig.mem_block_symbols = 64; // amount of RMT symbols that the channel can store at a time
-    dali_rxChannelConfig.gpio_num = (gpio_num_t)rx_pin;
-    dali_rxChannelConfig.flags.invert_in = true;
+    dali_rxChannelConfig = (rmt_rx_channel_config_t) {
+        .gpio_num = (gpio_num_t)rx_pin,
+        .clk_src = RMT_CLK_SRC_REF_TICK,
+        .resolution_hz = DALI_RMT_RESOLUTION_HZ,
+        .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .flags = {
+            .invert_in = true
+        }
+    };
     resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
     printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
     if(resp != ESP_OK)
