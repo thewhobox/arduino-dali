@@ -81,7 +81,7 @@ static void IRAM_ATTR onDALIFrameStart(void* arg)
 
     // printf("onDALIFrameStart\r\n");
     // printf("arg:                             %p\r\n", arg);
-    DaliBusClass *daliClass = (DaliBusClass *)arg;
+    DaliBusClass *daliClass = static_cast<DaliBusClass*>(arg);
     daliClass->flag = !daliClass->flag;
     // printf("daliClass:                       %p\r\n", daliClass);
     // printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
