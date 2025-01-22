@@ -66,6 +66,8 @@ public:
 	rmt_receive_config_t dali_rxReceiveConfig;
 	uint16_t uniqueId = 0x1234; //4660
 
+	bool flag = false;
+
 
 private:
 	rmt_channel_handle_t dali_rxChannel;

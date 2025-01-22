@@ -163,6 +163,10 @@ void DaliClass::commission(byte startAddress, bool onlyNew) {
   commissionState = COMMISSION_INIT;
 }
 
+DaliBusClass* DaliClass::getDaliBus() {
+  return &daliBus;
+}
+
 void DaliClass::commission_tick() {
   // TODO: set timeout for commissioning?
   // TODO: also clear group addresses?

@@ -195,6 +195,7 @@ class DaliClass {
     };
     commissionStateEnum commissionState = COMMISSION_OFF; /**< current state of commissioning state machine */
 #endif
+    DaliBusClass* getDaliBus();
 
   private:
     DaliBusClass daliBus;
