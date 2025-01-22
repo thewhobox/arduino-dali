@@ -24,7 +24,6 @@ static rmt_transmit_config_t transmit_config;
 
 static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
-    daliClass->flag = !daliClass->flag;
     //printf("dali_rmt_rx_callback\r\n");
     BaseType_t high_task_wakeup = pdFALSE;
     // QueueHandle_t receive_queue = (QueueHandle_t)user_data;
@@ -34,6 +33,7 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     // printf("edata:                           %p\r\n", edata);
     // printf("user_data:                       %p\r\n", user_data);
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(user_data);
+    daliClass->flag = !daliClass->flag;
     // printf("daliClass:                       %p\r\n", daliClass);
     gpio_intr_enable(daliClass->getRxPin());
     return high_task_wakeup == pdTRUE;
