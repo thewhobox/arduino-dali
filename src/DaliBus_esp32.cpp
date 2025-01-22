@@ -78,11 +78,11 @@ gpio_num_t DaliBusClass::getRxPin()
 
 void IRAM_ATTR onDALIFrameStart(void* arg)
 {
-    printf("onDALIFrameStart\r\n");
-    printf("arg:                             %p\r\n", arg);
-    DaliBusClass *daliClass = (DaliBusClass *)arg;
-    printf("daliClass:                       %p\r\n", daliClass);
-    printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
+    // printf("onDALIFrameStart\r\n");
+    // printf("arg:                             %p\r\n", arg);
+    // DaliBusClass *daliClass = (DaliBusClass *)arg;
+    // printf("daliClass:                       %p\r\n", daliClass);
+    // printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
     // esp_err_t resp = gpio_intr_disable(daliClass->getRxPin());
     // printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
 
@@ -208,10 +208,10 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     gpio_config_t io_conf = {};
     // Interrupt happens
-    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
+    io_conf.intr_type = GPIO_INTR_NEGEDGE; //dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = BIT64(dali_rxChannelConfig.gpio_num);
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pin_bit_mask = (1UL << rx_pin);
+    //io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     // Configure the pin
     resp = gpio_config(&io_conf);
@@ -219,7 +219,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     // Configure the interrupt
     resp = gpio_install_isr_service(0 /* No flags */); // Call this only once !!
     printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
-    resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, onDALIFrameStart, this);
+    resp = gpio_isr_handler_add(rx_pin, onDALIFrameStart, this);
     printf("gpio_isr_handler_add:            %d (%s) - %d\n", resp, esp_err_to_name(resp), dali_rxChannelConfig.gpio_num);
 
     printf("daliClass:                       %p\n", this);
