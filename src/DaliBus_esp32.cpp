@@ -281,7 +281,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     gpio_config_t io_conf = {};
     // Interrupt happens
-    io_conf.intr_type = !dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
+    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1UL << rx_pin);
     //io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
