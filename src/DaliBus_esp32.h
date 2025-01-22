@@ -19,6 +19,11 @@
 
 #define DALI_BACKWARD_FRAME_TIMEOUT_MS 40 // (22 Te + 22 Te) * 417 us/Te = 18 ms
 
+typedef enum {
+    DALI_RECEIVE_PREV_BIT_ZERO,
+    DALI_RECEIVE_PREV_BIT_ONE
+} dali_receivePrevBit_t;
+
 static const rmt_symbol_word_t DALI_SYMBOL_ONE = {
 	.duration0 = DALI_USTORMT(DALI_ONE_TE),
 	.level0 = 1,
@@ -54,6 +59,9 @@ public:
 	rmt_channel_handle_t getRxHandle();
 	QueueHandle_t getQueueHandle();
 	gpio_num_t getRxPin();
+	void setReceiving();
+	esp_err_t decode_symbols(rmt_rx_done_event_data_t *edata, byte *data, size_t *size);
+
 
 	EventHandlerReceivedDataFuncPtr receivedCallback;
 	EventHandlerActivityFuncPtr activityCallback;
@@ -78,6 +86,7 @@ private:
 	rmt_encoder_handle_t dali_txChannelEncoder;
 
 	bool isSending = false;
+	bool isReceiving = false;
 };
 
 #endif

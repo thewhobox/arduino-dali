@@ -42,6 +42,8 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     return high_task_wakeup == pdTRUE;
 }
 
+
+
 static void dali_rmt_rx_task(void *arg)
 {
     printf("dali_rmt_rx_task\r\n");
@@ -59,8 +61,87 @@ static void dali_rmt_rx_task(void *arg)
         if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
         {
             printf("Received %d symbols\n", rx_data.num_symbols);
+            uint8_t data[3];
+            size_t sizeInBits = 0;
+            esp_err_t resp = daliClass->decode_symbols(&rx_data, data, &sizeInBits);
+            printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), data, sizeInBits);
         }
     }
+}
+
+static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level) {
+    if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
+            && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
+        // short break (1 Te)
+        if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
+                && (level == 0)) {
+            // _/-\_/-
+            //    ^
+            //    ^ ignore this edge
+        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
+                && (level == 1)) {
+            // this is a repeated one
+            (*frame) <<= 1;
+            (*frame) |= 1;
+            (*frame_index)++;
+            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ONE;
+        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
+                && (level == 1)) {
+            // -\_/-\_
+            //    ^
+            //    ^ ignore this edge
+        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
+                && (level == 0)) {
+            // this is a repeated zero
+            (*frame) <<= 1;
+            (*frame_index)++;
+            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ZERO;
+        }
+    } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_2TE_LOW))
+            && (duration < DALI_USTORMT(DALI_THRESHOLD_2TE_HIGH))) {
+        if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
+                && (level == 0)) {
+            // this is a zero following a one
+            (*frame) <<= 1;
+            (*frame_index)++;
+            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ZERO;
+        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
+                && (level == 1)) {
+            // this is a one following a zero
+            (*frame) <<= 1;
+            (*frame) |= 1;
+            (*frame_index)++;
+            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ONE;
+        } else {
+            // illegal state
+            // again, this is somewhere in the middle of a transmission
+            // -> do not reset right away, but wait in error state
+            return ESP_ERR_INVALID_STATE;
+        }
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint8_t *data, size_t *size)
+{
+    dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
+    uint32_t frame = 0;
+    uint8_t frame_index = 0;
+
+    esp_err_t resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1);
+    for (size_t i = 1; i < rx_data->num_symbols; i++) {
+        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
+        if (frame_index == 8) {
+            break;
+        }
+        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
+        if (frame_index == 8) {
+            break;
+        }
+    }
+
+    return ESP_OK;
 }
 
 gpio_num_t DaliBusClass::getRxPin()
@@ -70,17 +151,10 @@ gpio_num_t DaliBusClass::getRxPin()
 
 static void IRAM_ATTR onDALIFrameStart(void* arg)
 {
-
-    // printf("onDALIFrameStart\r\n");
-    // printf("arg:                             %p\r\n", arg);
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(arg);
-    // printf("daliClass:                       %p\r\n", daliClass);
-    // printf("daliClass uID:                   %.4X\r\n", daliClass->uniqueId);
+    daliClass->setReceiving();
     gpio_intr_disable(daliClass->getRxPin());
-    // printf("gpio_intr_disable:               %d (%s)\n", resp, esp_err_to_name(resp));
-
     rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
-    // printf("rmt_receive:                     %d (%s)\n", resp, esp_err_to_name(resp));
 }
 
 static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
@@ -177,7 +251,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
     
-    dali_rxChannelQueue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
+    dali_rxChannelQueue = xQueueCreate(10, sizeof(rmt_rx_done_event_data_t));
     printf("dali_rxChannelQueue:             %p\n", dali_rxChannelQueue);
      rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = dali_rmt_rx_callback,
@@ -257,6 +331,11 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     return DALI_NO_ERROR;
 }
 
+void DaliBusClass::setReceiving()
+{
+    isReceiving = true;
+}
+
 int DaliBusClass::getLastResponse()
 {
     return 0;
@@ -264,6 +343,6 @@ int DaliBusClass::getLastResponse()
 
 bool DaliBusClass::busIsIdle()
 {
-    return !isSending;
+    return !isSending && !isReceiving;
 }
 //#endif
