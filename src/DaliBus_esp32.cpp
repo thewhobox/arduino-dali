@@ -78,7 +78,7 @@ gpio_num_t DaliBusClass::getRxPin()
 
 static void IRAM_ATTR onDALIFrameStart(void* arg)
 {
-    // printf("onDALIFrameStart\r\n");
+    printf("onDALIFrameStart\r\n");
     // printf("arg:                             %p\r\n", arg);
     // DaliBusClass *daliClass = (DaliBusClass *)arg;
     // printf("daliClass:                       %p\r\n", daliClass);
