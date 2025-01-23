@@ -41,8 +41,6 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     return high_task_wakeup == pdTRUE;
 }
 
-
-
 static void dali_rmt_rx_task(void *arg)
 {
     printf("dali_rmt_rx_task\r\n");
@@ -70,6 +68,11 @@ static void dali_rmt_rx_task(void *arg)
                 daliClass->lastResponse = data & 0xFF;
             }
             daliClass->setReceiving(false);
+
+            if(daliClass->receivedCallback != 0)
+            {
+                daliClass->receivedCallback(&data + 1, sizeInBits);
+            }
         }
     }
 }
