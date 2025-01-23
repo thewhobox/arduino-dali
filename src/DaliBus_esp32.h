@@ -18,6 +18,7 @@
 #define DALI_THRESHOLD_2TE_HIGH (2*DALI_THRESHOLD_1TE_HIGH)
 
 #define DALI_BACKWARD_FRAME_TIMEOUT_MS 40 // (22 Te + 22 Te) * 417 us/Te = 18 ms
+#define DALI_TE_TO_MS(x) (x * 417 / 1000)
 
 typedef enum {
     DALI_RECEIVE_PREV_BIT_ZERO,
@@ -59,23 +60,22 @@ public:
 	rmt_channel_handle_t getRxHandle();
 	QueueHandle_t getQueueHandle();
 	gpio_num_t getRxPin();
-	void setReceiving();
+	void setReceiving(bool value);
 	esp_err_t decode_symbols(rmt_rx_done_event_data_t *edata, uint32_t *data, size_t *size);
 
 
 	EventHandlerReceivedDataFuncPtr receivedCallback;
 	EventHandlerActivityFuncPtr activityCallback;
 	EventHandlerErrorFuncPtr errorCallback;
+	
+    TaskHandle_t rxTaskHandle;
 
 	// TODO remove temp
-	bool tempBusLevel = false;
-	uint16_t tempDelta = 0;
+	// bool tempBusLevel = false;
+	// uint16_t tempDelta = 0;
 	rmt_symbol_word_t rawSymbols[64];
 	rmt_receive_config_t dali_rxReceiveConfig;
-	uint16_t uniqueId = 0x1234; //4660
-
-	bool flag = false;
-
+	int lastResponse = 0;
 
 private:
 	rmt_channel_handle_t dali_rxChannel;
@@ -87,6 +87,7 @@ private:
 
 	bool isSending = false;
 	bool isReceiving = false;
+
 };
 
 #endif

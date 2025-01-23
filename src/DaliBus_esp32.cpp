@@ -33,7 +33,6 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     // printf("edata:                           %p\r\n", edata);
     // printf("user_data:                       %p\r\n", user_data);
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(user_data);
-    daliClass->flag = !daliClass->flag;
     // printf("daliClass:                       %p\r\n", daliClass);
 
     xQueueSendFromISR(daliClass->getQueueHandle(), edata, &high_task_wakeup);
@@ -66,6 +65,11 @@ static void dali_rmt_rx_task(void *arg)
             size_t sizeInBits = 0;
             esp_err_t resp = daliClass->decode_symbols(&rx_data, &data, &sizeInBits);
             printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), data, sizeInBits);
+            if(sizeInBits == 8)
+            {
+                daliClass->lastResponse = data & 0xFF;
+            }
+            daliClass->setReceiving(false);
         }
     }
 }
@@ -154,17 +158,16 @@ gpio_num_t DaliBusClass::getRxPin()
     return dali_rxChannelConfig.gpio_num;
 }
 
-static void IRAM_ATTR onDALIFrameStart(void* arg)
+static void IRAM_ATTR dali_rmt_start_rx_receive(void* arg)
 {
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(arg);
-    daliClass->setReceiving();
+    daliClass->setReceiving(true);
+    xTaskAbortDelay(daliClass->rxTaskHandle);
     gpio_intr_disable(daliClass->getRxPin());
     rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
 }
 
-static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size,
-                               size_t symbols_written, size_t symbols_free,
-                               rmt_symbol_word_t *symbols, bool *done, void *arg)
+static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size, size_t symbols_written, size_t symbols_free, rmt_symbol_word_t *symbols, bool *done, void *arg)
 {
     // We need a minimum of 18 symbol spaces to encode a command.
     // Symbol spaces = 1 start bit + 16 bit command + 2 stop bits
@@ -275,7 +278,6 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if(resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
-    TaskHandle_t rxTaskHandle;
     BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 2048, this, 0, &rxTaskHandle);
     printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
 
@@ -292,7 +294,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     // Configure the interrupt
     resp = gpio_install_isr_service(0 /* No flags */); // Call this only once !!
     printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
-    resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, onDALIFrameStart, this);
+    resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, dali_rmt_start_rx_receive, this);
     printf("gpio_isr_handler_add:            %d (%s) - %d\n", resp, esp_err_to_name(resp), dali_rxChannelConfig.gpio_num);
 
     printf("daliClass:                       %p\n", this);
@@ -317,6 +319,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
 
     printf("Sending %d bits\n", bits);
     gpio_intr_disable(getRxPin());
+    lastResponse = DALI_RX_EMPTY;
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
     printf("rmt_transmit:           %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
@@ -338,18 +341,24 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
         return DALI_SEND_TIMEOUT;
     }
 
+    //wait at up to 22TE
+    // - we receive a response first (if any)
+    // - or wait time to the next forware frame
+    vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(22)));
+    printf("transmit done\n");
+
     isSending = false;
     return DALI_NO_ERROR;
 }
 
-void DaliBusClass::setReceiving()
+void DaliBusClass::setReceiving(bool value)
 {
-    isReceiving = true;
+    isReceiving = value;
 }
 
 int DaliBusClass::getLastResponse()
 {
-    return 0;
+    return lastResponse;
 }
 
 bool DaliBusClass::busIsIdle()
