@@ -59,7 +59,7 @@ static void dali_rmt_rx_task(void *arg)
 
             if(daliClass->receivedCallback != 0)
             {
-                uint8_t *data = new uint8_t[3];
+                uint8_t *data = new uint8_t[4];
                 // handle support for 25 bit commands
                 if(sizeInBits == 25) {
                     uint8_t temp = rxCommand & 0xFF;
@@ -345,7 +345,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     lastResponse = DALI_RX_EMPTY;
 
     // handle support for sending 25bit commands
-    uint8_t txmessage[3];
+    uint8_t txmessage[4];
     memcpy(txmessage, message, 3);
     if(bits == 25) {
         txmessage[3] = (txmessage[2] & 1) << 7;
