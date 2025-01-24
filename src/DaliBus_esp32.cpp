@@ -384,7 +384,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     printf("transmit done\n");
 
     isSending = false;
-    return DALI_NO_ERROR;
+    return DALI_SENT;
 }
 
 void DaliBusClass::setReceiving(bool value)
