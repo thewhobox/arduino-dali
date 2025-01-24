@@ -24,29 +24,18 @@ static rmt_transmit_config_t transmit_config;
 
 static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data)
 {
-    //printf("dali_rmt_rx_callback\r\n");
+    // no printfs in this function, as it is called from an ISR
     BaseType_t high_task_wakeup = pdFALSE;
-    // QueueHandle_t receive_queue = (QueueHandle_t)user_data;
-    // // send the received RMT symbols to the parser task
-    // xQueueSendFromISR(receive_queue, edata, &high_task_wakeup);
-
-    // printf("edata:                           %p\r\n", edata);
-    // printf("user_data:                       %p\r\n", user_data);
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(user_data);
-    // printf("daliClass:                       %p\r\n", daliClass);
-
     xQueueSendFromISR(daliClass->getQueueHandle(), edata, &high_task_wakeup);
-
     gpio_intr_enable(daliClass->getRxPin());
     return high_task_wakeup == pdTRUE;
 }
 
 static void dali_rmt_rx_task(void *arg)
 {
-    printf("dali_rmt_rx_task\r\n");
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(arg);
 
-    printf("daliClass: %p\r\n", daliClass);
     rmt_receive_config_t dali_rxReceiveConfig = (rmt_receive_config_t) {
         .signal_range_min_ns = DALI_USTONS(2),
         .signal_range_max_ns = DALI_USTONS(DALI_THRESHOLD_2TE_HIGH),
@@ -70,20 +59,17 @@ static void dali_rmt_rx_task(void *arg)
 
             if(daliClass->receivedCallback != 0)
             {
-                uint8_t *data = new uint8_t[3]; // Allocate 3 bytes for safety.
-
+                uint8_t *data = new uint8_t[3];
+                // handle support for 25 bit commands
                 if(sizeInBits == 25) {
                     uint8_t temp = rxCommand & 0xFF;
                     rxCommand = (rxCommand >> 1) & 0xFFFF;
                     rxCommand |= temp;
                 }
 
-                // Extract bytes from rxCommand
                 uint8_t offset = sizeInBits - 8; // Start with bitlen - 8 for the first byte
-
                 // Extract the first byte (always available if bitlen >= 16)
                 data[0] = (rxCommand >> offset) & 0xFF;
-
                 // Decrease offset and extract the second byte if bitlen >= 16
                 offset -= 8;
                 if (sizeInBits >= 16) {
@@ -91,7 +77,6 @@ static void dali_rmt_rx_task(void *arg)
                 } else {
                     data[1] = 0; // Clear the second byte if it's not present
                 }
-
                 // Decrease offset and extract the third byte if bitlen >= 24
                 offset -= 8;
                 if (sizeInBits >= 24) {
@@ -165,37 +150,9 @@ static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, ui
     return ESP_OK;
 }
 
-esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32_t *data, size_t *size)
-{
-    dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
-    uint32_t frame = 0;
-    uint8_t frame_index = 0;
-
-    esp_err_t resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1);
-    for (size_t i = 1; i < rx_data->num_symbols; i++) {
-        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
-        if (frame_index == 8) {
-            break;
-        }
-        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
-        if (frame_index == 8) {
-            break;
-        }
-    }
-
-    *data = frame;
-    *size = frame_index;
-
-    return ESP_OK;
-}
-
-gpio_num_t DaliBusClass::getRxPin()
-{
-    return dali_rxChannelConfig.gpio_num;
-}
-
 static void IRAM_ATTR dali_rmt_start_rx_receive(void* arg)
 {
+    // no printfs in this function, as it is called from an ISR
     DaliBusClass *daliClass = static_cast<DaliBusClass*>(arg);
     daliClass->setReceiving(true);
     xTaskAbortDelay(daliClass->rxTaskHandle);
@@ -241,6 +198,36 @@ static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size, size_t 
         *done = 1; // Indicate end of the transaction.
         return 1;  // We only wrote one symbol
     }
+}
+
+esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32_t *data, size_t *size)
+{
+    dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
+    uint32_t frame = 0;
+    uint8_t frame_index = 0;
+
+    // TODO dont depend on receiving only 8bits
+    esp_err_t resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1);
+    for (size_t i = 1; i < rx_data->num_symbols; i++) {
+        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
+        if (frame_index == 8) {
+            break;
+        }
+        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
+        if (frame_index == 8) {
+            break;
+        }
+    }
+
+    *data = frame;
+    *size = frame_index;
+
+    return ESP_OK;
+}
+
+gpio_num_t DaliBusClass::getRxPin()
+{
+    return dali_rxChannelConfig.gpio_num;
 }
 
 int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
@@ -356,6 +343,13 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     printf("Sending %d bits\n", bits);
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
+
+    // handle support for sending 25bit commands
+    if(bits == 25) {
+        message[3] = (message[2] & 1) << 7;
+        message[2] = (message[2] >> 1) | 0b10000000;
+    }
+
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
     printf("rmt_transmit:                    %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
