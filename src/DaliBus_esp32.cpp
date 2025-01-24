@@ -59,19 +59,49 @@ static void dali_rmt_rx_task(void *arg)
         {
             printf("Received %d symbols\n", rx_data.num_symbols);
             //uint8_t data[3];
-            uint32_t data = 0;
+            uint32_t rxCommand = 0;
             size_t sizeInBits = 0;
-            esp_err_t resp = daliClass->decode_symbols(&rx_data, &data, &sizeInBits);
-            printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), data, sizeInBits);
+            esp_err_t resp = daliClass->decode_symbols(&rx_data, &rxCommand, &sizeInBits);
+            printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), rxCommand, sizeInBits);
             if(sizeInBits == 8)
             {
-                daliClass->lastResponse = data & 0xFF;
+                daliClass->lastResponse = rxCommand & 0xFF;
             }
             daliClass->setReceiving(false);
 
             if(daliClass->receivedCallback != 0)
             {
-                daliClass->receivedCallback(&data + 1, sizeInBits);
+                uint8_t *data = new uint8_t[3]; // Allocate 3 bytes for safety.
+
+                if(sizeInBits == 25) {
+                    uint8_t temp = rxCommand & 0xFF;
+                    rxCommand = (rxCommand >> 1) & 0xFFFF;
+                    rxCommand |= temp;
+                }
+
+                // Extract bytes from rxCommand
+                uint8_t offset = sizeInBits - 8; // Start with bitlen - 8 for the first byte
+
+                // Extract the first byte (always available if bitlen >= 16)
+                data[0] = (rxCommand >> offset) & 0xFF;
+
+                // Decrease offset and extract the second byte if bitlen >= 16
+                offset -= 8;
+                if (sizeInBits >= 16) {
+                    data[1] = (rxCommand >> offset) & 0xFF;
+                } else {
+                    data[1] = 0; // Clear the second byte if it's not present
+                }
+
+                // Decrease offset and extract the third byte if bitlen >= 24
+                offset -= 8;
+                if (sizeInBits >= 24) {
+                    data[2] = (rxCommand >> offset) & 0xFF;
+                } else {
+                    data[2] = 0; // Clear the third byte if it's not present
+                }
+                daliClass->receivedCallback(data, sizeInBits);
+                delete[] data;
             }
         }
     }
