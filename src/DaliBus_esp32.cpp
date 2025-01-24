@@ -58,7 +58,6 @@ static void dali_rmt_rx_task(void *arg)
         if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
         {
             printf("Received %d symbols\n", rx_data.num_symbols);
-            //uint8_t data[3];
             uint32_t rxCommand = 0;
             size_t sizeInBits = 0;
             esp_err_t resp = daliClass->decode_symbols(&rx_data, &rxCommand, &sizeInBits);
@@ -66,8 +65,8 @@ static void dali_rmt_rx_task(void *arg)
             if(sizeInBits == 8)
             {
                 daliClass->lastResponse = rxCommand & 0xFF;
+                printf("Received response:               %.2X (%.8X\n", daliClass->lastResponse, daliClass->lastResponse);
             }
-            daliClass->setReceiving(false);
 
             if(daliClass->receivedCallback != 0)
             {
@@ -100,9 +99,13 @@ static void dali_rmt_rx_task(void *arg)
                 } else {
                     data[2] = 0; // Clear the third byte if it's not present
                 }
+                printf("calling receiveCallback\n");
                 daliClass->receivedCallback(data, sizeInBits);
                 delete[] data;
             }
+            
+            prtinf("receiving done\n");
+            daliClass->setReceiving(false);
         }
     }
 }
@@ -354,7 +357,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
-    printf("rmt_transmit:           %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_transmit:                    %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
     {
         isSending = false;
@@ -363,7 +366,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     }
     error = rmt_tx_wait_all_done(dali_txChannel, 100);
     gpio_intr_enable(getRxPin());
-    printf("rmt_tx_wait_all_done:   %d (%s)\n", error, esp_err_to_name(error));
+    printf("rmt_tx_wait_all_done:            %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
     {
         isSending = false;
