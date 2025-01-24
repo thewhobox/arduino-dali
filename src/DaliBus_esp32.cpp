@@ -345,12 +345,14 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     lastResponse = DALI_RX_EMPTY;
 
     // handle support for sending 25bit commands
+    uint8_t txmessage[3];
+    memcpy(txmessage, message, 3);
     if(bits == 25) {
-        message[3] = (message[2] & 1) << 7;
-        message[2] = (message[2] >> 1) | 0b10000000;
+        txmessage[3] = (txmessage[2] & 1) << 7;
+        txmessage[2] = (txmessage[2] >> 1) | 0b10000000;
     }
 
-    esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, message, bits / 8, &transmit_config);
+    esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, txmessage, bits / 8, &transmit_config);
     printf("rmt_transmit:                    %d (%s)\n", error, esp_err_to_name(error));
     if(error != ESP_OK)
     {
