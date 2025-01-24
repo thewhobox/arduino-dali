@@ -104,7 +104,7 @@ static void dali_rmt_rx_task(void *arg)
                 delete[] data;
             }
             
-            prtinf("receiving done\n");
+            printf("receiving done\n");
             daliClass->setReceiving(false);
         }
     }
@@ -394,6 +394,7 @@ void DaliBusClass::setReceiving(bool value)
 
 int DaliBusClass::getLastResponse()
 {
+    printf("getLastResponse:                 %.2X (%i)\n", lastResponse, lastResponse);
     return lastResponse;
 }
 
