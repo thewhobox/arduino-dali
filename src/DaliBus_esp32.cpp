@@ -95,7 +95,8 @@ static void dali_rmt_rx_task(void *arg)
     }
 }
 
-static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level) {
+static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level)
+{
     level = (level == 0) ? 1 : 0;
     if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
@@ -206,6 +207,12 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     uint32_t frame = 0;
     uint8_t frame_index = 0;
 
+    for(int i = 0; i < rx_data->num_symbols; i++)
+    {
+        printf("Symbol %d.0: %d %dns\n", i, rx_data->received_symbols[i].level0, rx_data->received_symbols[i].duration0);
+        printf("Symbol %d.1: %d %dns\n", i, rx_data->received_symbols[i].level1, rx_data->received_symbols[i].duration1);
+    }
+
     // TODO dont depend on receiving only 8bits
     esp_err_t resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1);
     for (size_t i = 1; i < rx_data->num_symbols; i++) {
@@ -306,7 +313,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     gpio_config_t io_conf = {};
     // Interrupt happens
-    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE;
+    io_conf.intr_type = dali_rxChannelConfig.flags.invert_in ? GPIO_INTR_NEGEDGE : GPIO_INTR_POSEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = (1UL << rx_pin);
     //io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
