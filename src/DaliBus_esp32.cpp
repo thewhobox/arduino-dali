@@ -338,7 +338,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     //printf("daliClass:                       %p\n", this);
 
-    // printf("DaliBus initialized\n");
+    printf("DaliBus initialized\n");
     return 0;
 }
 
@@ -356,7 +356,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
 {
     isSending = true;
 
-    //printf("Sending %d bits\n", bits);
+    printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
 
@@ -393,7 +393,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte * message, uint8_t bits)
     // - we receive a response first (if any)
     // - or wait time to the next forware frame
     vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(22)));
-    //printf("transmit done\n");
+    printf("transmit done\n");
 
     isSending = false;
     return DALI_SENT;
