@@ -16,7 +16,7 @@
 */
 
 #include "DaliBus.h"
-//#ifdef DALI_USE_ESP32
+#ifdef DALI_USE_ESP32
 
 #include "DaliBus_esp32.h"
 
@@ -414,4 +414,4 @@ bool DaliBusClass::busIsIdle()
 {
     return !isSending && !isReceiving;
 }
-//#endif
+#endif
