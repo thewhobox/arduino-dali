@@ -9,20 +9,21 @@
 
 #define DALI_RMT_RESOLUTION_HZ 1000000
 #define DALI_USTORMT(x) ((x) * (DALI_RMT_RESOLUTION_HZ / 1000000))
-#define DALI_USTONS(x)  (x * 1000)
+#define DALI_USTONS(x) (x * 1000)
 #define DALI_ONE_TE 416
 
-#define DALI_THRESHOLD_1TE_LOW  334
+#define DALI_THRESHOLD_1TE_LOW 334
 #define DALI_THRESHOLD_1TE_HIGH 500
-#define DALI_THRESHOLD_2TE_LOW  (2*DALI_THRESHOLD_1TE_LOW)
-#define DALI_THRESHOLD_2TE_HIGH (2*DALI_THRESHOLD_1TE_HIGH)
+#define DALI_THRESHOLD_2TE_LOW (2 * DALI_THRESHOLD_1TE_LOW)
+#define DALI_THRESHOLD_2TE_HIGH (2 * DALI_THRESHOLD_1TE_HIGH)
 
 #define DALI_BACKWARD_FRAME_TIMEOUT_MS 40 // (22 Te + 22 Te) * 417 us/Te = 18 ms
 #define DALI_TE_TO_MS(x) (x * 417 / 1000)
 
-typedef enum {
-    DALI_RECEIVE_PREV_BIT_ZERO,
-    DALI_RECEIVE_PREV_BIT_ONE
+typedef enum
+{
+	DALI_RECEIVE_PREV_BIT_ZERO,
+	DALI_RECEIVE_PREV_BIT_ONE
 } dali_receivePrevBit_t;
 
 static const rmt_symbol_word_t DALI_SYMBOL_ONE = {
@@ -63,16 +64,12 @@ public:
 	void setReceiving(bool value);
 	esp_err_t decode_symbols(rmt_rx_done_event_data_t *edata, uint32_t *data, size_t *size);
 
-
 	EventHandlerReceivedDataFuncPtr receivedCallback;
 	EventHandlerActivityFuncPtr activityCallback;
 	EventHandlerErrorFuncPtr errorCallback;
-	
-    TaskHandle_t rxTaskHandle;
 
-	// TODO remove temp
-	// bool tempBusLevel = false;
-	// uint16_t tempDelta = 0;
+	TaskHandle_t rxTaskHandle;
+
 	rmt_symbol_word_t rawSymbols[64];
 	rmt_receive_config_t dali_rxReceiveConfig;
 	int lastResponse = 0;
@@ -87,7 +84,6 @@ private:
 
 	bool isSending = false;
 	bool isReceiving = false;
-
 };
 
 #endif
