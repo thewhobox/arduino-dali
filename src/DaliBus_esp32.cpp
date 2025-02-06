@@ -118,8 +118,9 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint
 
     if(duration == 0) {
         // this is the stop bit
-        if(*prev_level == false)
+        if(*prev_level == false && *frame_index % 2 != 0)
         {
+            (*frame_index)++;
             // here we are missing the last 1,
             // since it is in the stop bit
             (*frame) <<= 1;
