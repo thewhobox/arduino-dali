@@ -16,7 +16,10 @@
  */
 
 #include "DaliBus.h"
+#include <stdio.h>
+
 #ifdef DALI_USE_ESP32
+#undef DALI_DEBUG
 
 #include "DaliBus_esp32.h"
 
@@ -109,7 +112,7 @@ static void dali_rmt_rx_task(void *arg)
     }
 }
 
-#include <stdio.h>
+
 
 // Helper function to print a number in binary format
 void print_binary(uint32_t num, uint8_t bits)
@@ -136,11 +139,11 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
             // since it is in the stop bit
             (*frame) <<= 1;
             (*frame) |= 1;
-#ifdef DALI_DEBUG
+/*#ifdef DALI_DEBUG
             printf("1 -> Frame: ");
             print_binary(*frame, *frame_index / 2);
             printf(", Index: %d\n\n", *frame_index);
-#endif
+#endif*/
         }
         return ESP_FAIL; // means stop it
     }
@@ -298,7 +301,7 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     {
         // this is the start bit and the first bit!
         // so we give it a 1
-        dali_rmt_rx_decoder(&frame, &frame_index, 430, 1, &prev_level);
+        dali_rmt_rx_decoder(&frame, &frame_index, 417, 1, &prev_level);
     }
 
     // TODO dont depend on receiving only 8bits
@@ -403,7 +406,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     if (resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
-    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 2048, this, 0, &rxTaskHandle);
+    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 4096, this, 0, &rxTaskHandle);
     // printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
 
     gpio_config_t io_conf = {};
@@ -443,7 +446,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
 {
     isSending = true;
 
-    printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
+    //printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
 
@@ -481,7 +484,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
     //  - we receive a response first (if any)
     //  - or wait time to the next forware frame
     vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(22)));
-    printf("transmit done\n");
+    //printf("transmit done\n");
 
     isSending = false;
     return DALI_SENT;
