@@ -249,6 +249,11 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     uint8_t frame_index = 0;
     bool prev_level = true;
 
+    for (size_t i = 1; i < rx_data->num_symbols; i++) {
+        printf("Duration0: %d, Level0: %d\n", rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
+        printf("Duration1: %d, Level1: %d\n", rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
+    }
+
     // TODO dont depend on receiving only 8bits
     esp_err_t resp= dali_rmt_rx_decoder(&frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1, &prev_level);
     for (size_t i = 1; i < rx_data->num_symbols; i++) {
