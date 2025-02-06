@@ -114,7 +114,9 @@ void print_binary(uint32_t num, uint8_t bits) {
 
 static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint16_t duration, bool level, bool *prev_level)
 {
+    #ifdef DALI_DEBUG
     printf("Duration: %d, Level: %d, Prev Bit: %d\n", duration, level, *prev_level);
+    #endif
 
     if(duration == 0) {
         // this is the stop bit
@@ -125,9 +127,11 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint
             // since it is in the stop bit
             (*frame) <<= 1;
             (*frame) |= 1;
+            #ifdef DALI_DEBUG
             printf("1 -> Frame: ");
             print_binary(*frame, *frame_index/2);
             printf(", Index: %d\n\n", *frame_index);
+            #endif
         }
         return ESP_FAIL; // means stop it
     } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
@@ -142,18 +146,22 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint
                 //  ^
                 (*frame) <<= 1;
                 (*frame) |= 1;
+                #ifdef DALI_DEBUG
                 printf("1 -> Frame: ");
                 print_binary(*frame, *frame_index/2);
                 printf(", Index: %d\n\n", *frame_index);
+                #endif
             }
             if(level == 0 && *prev_level == 1) {
                 // this is a zero
                 // _/-\_/-
                 //    ^
                 (*frame) <<= 1;
+                #ifdef DALI_DEBUG
                 printf("0 -> Frame: ");
                 print_binary(*frame, *frame_index/2);
                 printf(", Index: %d\n\n", *frame_index);
+                #endif
             }
         }
         *prev_level = level;
@@ -170,18 +178,22 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint
                 //   ^
                 (*frame) <<= 1;
                 (*frame) |= 1;
+                #ifdef DALI_DEBUG
                 printf("1 -> Frame: ");
                 print_binary(*frame, *frame_index/2);
                 printf(", Index: %d\n\n", *frame_index);
+                #endif
             }
             if(level == 0 && *prev_level == 1) {
                 // this is a zero
                 // _/-\__/-
                 //    ^ 
                 (*frame) <<= 1;
+                #ifdef DALI_DEBUG
                 printf("0 -> Frame: ");
                 print_binary(*frame, *frame_index/2);
                 printf(", Index: %d\n\n", *frame_index);
+                #endif
             }
         }
         //imaginary fill with 1 symbol
@@ -244,15 +256,16 @@ static size_t dali_rmt_tx_encoder_cb(const void *data, size_t data_size, size_t 
 
 esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32_t *data, size_t *size)
 {
-    dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
     uint32_t frame = 0;
     uint8_t frame_index = 0;
     bool prev_level = true;
 
+    #ifdef DALI_DEBUG
     for (size_t i = 0; i < rx_data->num_symbols; i++) {
         printf("Duration0: %d, Level0: %d\n", rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
         printf("Duration1: %d, Level1: %d\n", rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
     }
+    #endif
 
     if(rx_data->received_symbols[0].duration0 > 650) {
         // this is the start bit and the first bit!
