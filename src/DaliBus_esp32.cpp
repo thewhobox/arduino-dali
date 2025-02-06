@@ -102,72 +102,56 @@ static void dali_rmt_rx_task(void *arg)
     }
 }
 
-static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level)
+static esp_err_t dali_rmt_rx_decoder(uint32_t* frame, uint8_t* frame_index, uint16_t duration, bool level, bool *prev_level)
 {
     if(duration == 0) {
         // this is the stop bit
-        if(*frame_index % 2 != 0) {
-            if(*receive_prev_bit == DALI_RECEIVE_PREV_BIT_ONE && level == 1) {
-                // this is a repeated one
-                (*frame) <<= 1;
-                (*frame) |= 1;
-                (*frame_index)++;
-            } 
-            if(*receive_prev_bit == DALI_RECEIVE_PREV_BIT_ZERO && level == 0) {
-                // this is a repeated zero
-                (*frame) <<= 1;
-                (*frame_index)++;
-            }
-        }
         return ESP_FAIL; // means stop it
     } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
         // short break (1 Te)
-        if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
-                && (level == 0)) {
-            // _/-\_/-
-            //    ^
-            //    ^ ignore this edge
-        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
-                && (level == 1)) {
-            // this is a repeated one
-            (*frame) <<= 1;
-            (*frame) |= 1;
-            (*frame_index)++;
-            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ONE;
-        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
-                && (level == 1)) {
-            // -\_/-\_
-            //    ^
-            //    ^ ignore this edge
-        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
-                && (level == 0)) {
-            // this is a repeated zero
-            (*frame) <<= 1;
-            (*frame_index)++;
-            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ZERO;
+        (*frame_index)++;
+
+        if(*frame_index % 2 == 0) {
+            if(level == 1 && *prev_level == 0) {
+                // this is a one
+                // _/-\_/-
+                //  ^
+                (*frame) <<= 1;
+                (*frame) |= 1;
+            }
+            if(level == 0 && *prev_level == 1) {
+                // this is a zero
+                // _/-\_/-
+                //    ^
+                (*frame) <<= 1;
+            }
         }
+        *prev_level = level;
+        return ESP_OK;
     } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_2TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_2TE_HIGH))) {
-        if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
-                && (level == 1)) {
-            // this is a zero following a one
-            (*frame) <<= 1;
-            (*frame_index)++;
-            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ZERO;
-        } else if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ZERO)
-                && (level == 0)) {
-            // this is a one following a zero
-            (*frame) <<= 1;
-            (*frame) |= 1;
-            (*frame_index)++;
-            (*receive_prev_bit) = DALI_RECEIVE_PREV_BIT_ONE;
-        } else {
-            // illegal state
-            // again, this is somewhere in the middle of a transmission
-            // -> do not reset right away, but wait in error state
-            return ESP_ERR_INVALID_STATE;
+        // long break (2 Te)
+        (*frame_index)++;
+
+        if(*frame_index % 2 == 0) {
+            if(level == 1 && *prev_level == 0) {
+                // this is a one
+                // _/--\_/-
+                //   ^
+                (*frame) <<= 1;
+                (*frame) |= 1;
+            }
+            if(level == 0 && *prev_level == 1) {
+                // this is a zero
+                // _/-\__/-
+                //    ^ 
+                (*frame) <<= 1;
+            }
         }
+        //imaginary fill with 1 symbol
+        (*frame_index)++;
+        *prev_level = level;
     }
 
     return ESP_OK;
@@ -228,24 +212,25 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     dali_receivePrevBit_t received_prev_bit = DALI_RECEIVE_PREV_BIT_ONE;
     uint32_t frame = 0;
     uint8_t frame_index = 0;
+    bool prev_level = true;
 
     // TODO dont depend on receiving only 8bits
     esp_err_t resp = ESP_OK; //dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1);
     for (size_t i = 0; i < rx_data->num_symbols; i++) {
         
-        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
+        resp = dali_rmt_rx_decoder(&frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0, &prev_level);
         if (!resp == ESP_OK) {
             break;
         }
 
-        resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
+        resp = dali_rmt_rx_decoder(&frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1, &prev_level);
         if (!resp == ESP_OK) {
             break;
         }
     }
 
     *data = frame;
-    *size = frame_index;
+    *size = frame_index / 2;
 
     return ESP_OK;
 }
