@@ -254,6 +254,12 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
         printf("Duration1: %d, Level1: %d\n", rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
     }
 
+    if(rx_data->received_symbols[0].duration0 > 650) {
+        // this is the start bit and the first bit!
+        // so we give it a 1
+        dali_rmt_rx_decoder(&frame, &frame_index, 430, 1, &prev_level);
+    }
+
     // TODO dont depend on receiving only 8bits
     esp_err_t resp= dali_rmt_rx_decoder(&frame, &frame_index, rx_data->received_symbols[0].duration1, rx_data->received_symbols[0].level1, &prev_level);
     for (size_t i = 1; i < rx_data->num_symbols; i++) {
