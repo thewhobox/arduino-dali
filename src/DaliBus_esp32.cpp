@@ -104,7 +104,10 @@ static void dali_rmt_rx_task(void *arg)
 
 static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, uint32_t* frame, uint8_t* frame_index, uint16_t duration, uint16_t level)
 {
-    if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
+    if(duration == 0) {
+        // this is the stop bit
+        return ESP_FAIL; // means stop it
+    } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
         // short break (1 Te)
         if (((*receive_prev_bit) == DALI_RECEIVE_PREV_BIT_ONE)
@@ -218,11 +221,12 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     for (size_t i = 0; i < rx_data->num_symbols; i++) {
         
         resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
-        if (frame_index == 8) {
+        if (!resp == ESP_OK) {
             break;
         }
+
         resp = dali_rmt_rx_decoder(&received_prev_bit, &frame, &frame_index, rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
-        if (frame_index == 8) {
+        if (!resp == ESP_OK) {
             break;
         }
     }
