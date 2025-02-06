@@ -106,6 +106,19 @@ static esp_err_t dali_rmt_rx_decoder(dali_receivePrevBit_t* receive_prev_bit, ui
 {
     if(duration == 0) {
         // this is the stop bit
+        if(*frame_index % 2 != 0) {
+            if(*receive_prev_bit == DALI_RECEIVE_PREV_BIT_ONE && level == 1) {
+                // this is a repeated one
+                (*frame) <<= 1;
+                (*frame) |= 1;
+                (*frame_index)++;
+            } 
+            if(*receive_prev_bit == DALI_RECEIVE_PREV_BIT_ZERO && level == 0) {
+                // this is a repeated zero
+                (*frame) <<= 1;
+                (*frame_index)++;
+            }
+        }
         return ESP_FAIL; // means stop it
     } else if ((duration > DALI_USTORMT(DALI_THRESHOLD_1TE_LOW))
             && (duration < DALI_USTORMT(DALI_THRESHOLD_1TE_HIGH))) {
