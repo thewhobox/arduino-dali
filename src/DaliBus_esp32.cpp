@@ -67,6 +67,12 @@ static void dali_rmt_rx_task(void *arg)
                 // printf("Received response:               %.2X (%.8X\n", daliClass->lastResponse, daliClass->lastResponse);
             }
 
+            if(size != 8 && size != 16 && size != 25)
+            {
+                // this is an invalid size, so we may got a collission
+                daliClass->lastResponse = DALI_COLLISION;
+            }
+
             if (daliClass->receivedCallback != 0)
             {
                 uint8_t *data = new uint8_t[4];
