@@ -31,8 +31,7 @@ static bool dali_rmt_rx_callback(rmt_channel_handle_t channel, const rmt_rx_done
     BaseType_t high_task_wakeup = pdFALSE;
     DaliBusClass *daliClass = static_cast<DaliBusClass *>(user_data);
     xQueueSendFromISR(daliClass->getQueueHandle(), edata, &high_task_wakeup);
-    // gpio_intr_enable(daliClass->getRxPin());
-    // rmt_enable(daliClass->getRxHandle());
+    gpio_intr_enable(daliClass->getRxPin());
     return high_task_wakeup == pdTRUE;
 }
 
@@ -236,10 +235,11 @@ static void IRAM_ATTR dali_rmt_start_rx_receive(void *arg)
     // no printfs in this function, as it is called from an ISR
     DaliBusClass *daliClass = static_cast<DaliBusClass *>(arg);
     // if we already receiving ignore this
-    if(daliClass->getReceiving() || daliClass->getSending()) return;
+    if(daliClass->getReceiving())
+        return;
     daliClass->setReceiving(true);
     xTaskAbortDelay(daliClass->rxTaskHandle);
-    // gpio_intr_disable(daliClass->getRxPin());
+    gpio_intr_disable(daliClass->getRxPin());
     rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
 }
 
@@ -456,8 +456,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
     isSending = true;
 
     // printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
-    // gpio_intr_disable(getRxPin());
-    rmt_disable(dali_rxChannel);
+    gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
 
     // handle support for sending 25bit commands
@@ -478,8 +477,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
         return DALI_TX_ERROR;
     }
     error = rmt_tx_wait_all_done(dali_txChannel, 100);
-    rmt_enable(dali_rxChannel);
-    // gpio_intr_enable(getRxPin());
+    gpio_intr_enable(getRxPin());
     // printf("rmt_tx_wait_all_done:            %d (%s)\n", error, esp_err_to_name(error));
     if (error != ESP_OK)
     {
