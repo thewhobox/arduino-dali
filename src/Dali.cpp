@@ -203,9 +203,10 @@ void DaliClass::commission_tick() {
       case COMMISSION_RANDOM2:
         sendSpecialCmd(DaliSpecialCmd::RANDOMISE);
         commissionState = COMMISSION_RANDOMWAIT;
+        commissionRandomizeTimestamp = millis();
         break;
       case COMMISSION_RANDOMWAIT:  // wait 100ms for random address to generate
-        if (daliBus.busIdleCount >= 255)
+        if (millis() - commissionRandomizeTimestamp > 100) {
           commissionState = COMMISSION_STARTSEARCH;
         break;
       case COMMISSION_STARTSEARCH:

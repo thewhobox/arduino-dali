@@ -185,6 +185,9 @@ class DaliClass {
     /** When true, only ballasts without short address set are commissioned. */
     bool commissionOnlyNew;
 
+    /** Timeout for searching for random address */
+    unsigned long commissionRandomizeTimestamp = 0; 
+
     /** commissioning state machine states */
     enum commissionStateEnum { 
       COMMISSION_OFF, COMMISSION_INIT, COMMISSION_INIT2, COMMISSION_WRITE_DTR, COMMISSION_REMOVE_SHORT, COMMISSION_REMOVE_SHORT2, COMMISSION_RANDOM, COMMISSION_RANDOM2, COMMISSION_RANDOMWAIT,
