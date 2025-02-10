@@ -452,7 +452,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
 {
     isSending = true;
 
-    printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
+    // printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
 
