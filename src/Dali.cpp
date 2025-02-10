@@ -206,7 +206,7 @@ void DaliClass::commission_tick() {
         commissionRandomizeTimestamp = millis();
         break;
       case COMMISSION_RANDOMWAIT:  // wait 100ms for random address to generate
-        if (millis() - commissionRandomizeTimestamp > 100) {
+        if (millis() - commissionRandomizeTimestamp > 100)
           commissionState = COMMISSION_STARTSEARCH;
         break;
       case COMMISSION_STARTSEARCH:
