@@ -393,6 +393,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         .clk_src = RMT_CLK_SRC_REF_TICK,
         .resolution_hz = DALI_RMT_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
+        .intr_priority = 7,
         .flags = {
             .invert_in = true}};
     resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
