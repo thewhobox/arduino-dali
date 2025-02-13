@@ -17,7 +17,7 @@
 #define DALI_THRESHOLD_2TE_LOW (2 * DALI_THRESHOLD_1TE_LOW)
 #define DALI_THRESHOLD_2TE_HIGH (2 * DALI_THRESHOLD_1TE_HIGH)
 
-#define DALI_BACKWARD_FRAME_TIMEOUT_MS 40 // (22 Te + 22 Te) * 417 us/Te = 18 ms
+#define DALI_BACKWARD_FRAME_TIMEOUT_MS 9.17 // (22 Te + 22 Te) * 417 us/Te = 18 ms
 #define DALI_TE_TO_MS(x) (x * 417 / 1000)
 
 typedef enum

@@ -49,7 +49,6 @@ static void dali_rmt_rx_task(void *arg)
     {
         if (xQueueReceive(daliClass->getQueueHandle(), &rx_data, pdMS_TO_TICKS(DALI_BACKWARD_FRAME_TIMEOUT_MS)) == pdPASS)
         {
-            // printf("Received %d symbols\n", rx_data.num_symbols);
             uint32_t rxCommand = 0;
             size_t sizeInBits = 0;
             esp_err_t resp = daliClass->decode_symbols(&rx_data, &rxCommand, &sizeInBits);
@@ -60,11 +59,9 @@ static void dali_rmt_rx_task(void *arg)
                 continue;
             }
 
-            printf("decode_symbols:                  %d (%s) - %.6X %i bits\n", resp, esp_err_to_name(resp), rxCommand, sizeInBits);
             if (sizeInBits == 8)
             {
                 daliClass->lastResponse = rxCommand & 0xFF;
-                // printf("Received response:               %.2X (%.8X\n", daliClass->lastResponse, daliClass->lastResponse);
             }
 
             if(sizeInBits != 8 && sizeInBits != 16 && sizeInBits != 24 && sizeInBits != 25)
@@ -107,34 +104,17 @@ static void dali_rmt_rx_task(void *arg)
                 {
                     data[2] = 0; // Clear the third byte if it's not present
                 }
-                // printf("calling receiveCallback\n");
                 daliClass->receivedCallback(data, sizeInBits);
                 delete[] data;
             }
 
-            // printf("receiving done\n");
             daliClass->setReceiving(false);
         }
     }
 }
 
-
-
-// Helper function to print a number in binary format
-void print_binary(uint32_t num, uint8_t bits)
-{
-    for (int i = bits - 1; i >= 0; i--)
-    {
-        printf("%d", (num >> i) & 1);
-    }
-}
-
 static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint16_t duration, bool level, bool *prev_level)
 {
-#ifdef DALI_DEBUG
-    printf("Duration: %d, Level: %d, Prev Bit: %d\n", duration, level, *prev_level);
-#endif
-
     if (duration == 0)
     {
         // this is the stop bit
@@ -145,11 +125,6 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
             // since it is in the stop bit
             (*frame) <<= 1;
             (*frame) |= 1;
-/*#ifdef DALI_DEBUG
-            printf("1 -> Frame: ");
-            print_binary(*frame, *frame_index / 2);
-            printf(", Index: %d\n\n", *frame_index);
-#endif*/
         }
         return ESP_FAIL; // means stop it
     }
@@ -167,11 +142,6 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
                 //  ^
                 (*frame) <<= 1;
                 (*frame) |= 1;
-#ifdef DALI_DEBUG
-                printf("1 -> Frame: ");
-                print_binary(*frame, *frame_index / 2);
-                printf(", Index: %d\n\n", *frame_index);
-#endif
             }
             if (level == 0 && *prev_level == 1)
             {
@@ -179,11 +149,6 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
                 // _/-\_/-
                 //    ^
                 (*frame) <<= 1;
-#ifdef DALI_DEBUG
-                printf("0 -> Frame: ");
-                print_binary(*frame, *frame_index / 2);
-                printf(", Index: %d\n\n", *frame_index);
-#endif
             }
         }
         *prev_level = level;
@@ -203,11 +168,6 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
                 //   ^
                 (*frame) <<= 1;
                 (*frame) |= 1;
-#ifdef DALI_DEBUG
-                printf("1 -> Frame: ");
-                print_binary(*frame, *frame_index / 2);
-                printf(", Index: %d\n\n", *frame_index);
-#endif
             }
             if (level == 0 && *prev_level == 1)
             {
@@ -215,11 +175,6 @@ static esp_err_t dali_rmt_rx_decoder(uint32_t *frame, uint8_t *frame_index, uint
                 // _/-\__/-
                 //    ^
                 (*frame) <<= 1;
-#ifdef DALI_DEBUG
-                printf("0 -> Frame: ");
-                print_binary(*frame, *frame_index / 2);
-                printf(", Index: %d\n\n", *frame_index);
-#endif
             }
         }
         // imaginary fill with 1 symbol
@@ -238,7 +193,6 @@ static void IRAM_ATTR dali_rmt_start_rx_receive(void *arg)
     if(daliClass->getReceiving())
         return;
     daliClass->setReceiving(true);
-    xTaskAbortDelay(daliClass->rxTaskHandle);
     gpio_intr_disable(daliClass->getRxPin());
     rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
 }
@@ -298,14 +252,6 @@ esp_err_t DaliBusClass::decode_symbols(rmt_rx_done_event_data_t *rx_data, uint32
     uint8_t frame_index = 0;
     bool prev_level = true;
 
-#ifdef DALI_DEBUG
-    for (size_t i = 0; i < rx_data->num_symbols; i++)
-    {
-        printf("Duration0: %d, Level0: %d\n", rx_data->received_symbols[i].duration0, rx_data->received_symbols[i].level0);
-        printf("Duration1: %d, Level1: %d\n", rx_data->received_symbols[i].duration1, rx_data->received_symbols[i].level1);
-    }
-#endif
-
     if (rx_data->received_symbols[0].duration0 > 650)
     {
         // this is the start bit and the first bit!
@@ -350,7 +296,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
 
     dali_txChannelConfig = (rmt_tx_channel_config_t){
         .gpio_num = (gpio_num_t)tx_pin,
-        .clk_src = RMT_CLK_SRC_REF_TICK,
+        .clk_src = RMT_CLK_SRC_DEFAULT, // Use the default clock source
         .resolution_hz = DALI_RMT_RESOLUTION_HZ, // 1us resolution
         .mem_block_symbols = 64,                 // Memory block size, 64 * 4 = 256 Bytes
         .trans_queue_depth = 3,                  // Number of transactions that can pend in the background
@@ -358,9 +304,8 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
             .invert_out = false,
             .with_dma = false, // ESP32 does not support DMA
         }};
-    resp = rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel);
+resp = rmt_new_tx_channel(&dali_txChannelConfig, &dali_txChannel);
 
-    // printf("rmt_new_tx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
     if (resp != ESP_OK)
         return DALI_ERR_CREATE_TX;
 
@@ -370,12 +315,12 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
         // Note we don't set min_chunk_size here as the default of 64 is good enough.
     };
     resp = rmt_new_simple_encoder(&simple_encoder_cfg, &dali_txChannelEncoder);
-    // printf("rmt_new_simple_encoder:          %d (%s)\n", resp, esp_err_to_name(resp));
+
     if (resp != ESP_OK)
         return DALI_ERR_CREATE_ENCODER;
 
     resp = rmt_enable(dali_txChannel);
-    // printf("rmt_enable (tx):                 %d (%s)\n", resp, esp_err_to_name(resp));
+
     if (resp != ESP_OK)
         return DALI_ERR_ENABLE_TX;
 
@@ -390,33 +335,32 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_rxChannel = NULL;
     dali_rxChannelConfig = (rmt_rx_channel_config_t){
         .gpio_num = (gpio_num_t)rx_pin,
-        .clk_src = RMT_CLK_SRC_REF_TICK,
+        .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = DALI_RMT_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
         .flags = { .invert_in = true }
     };
     resp = rmt_new_rx_channel(&dali_rxChannelConfig, &dali_rxChannel);
-    // printf("rmt_new_rx_channel:              %d (%s)\n", resp, esp_err_to_name(resp));
+
     if (resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
 
     dali_rxChannelQueue = xQueueCreate(10, sizeof(rmt_rx_done_event_data_t));
-    // printf("dali_rxChannelQueue:             %p\n", dali_rxChannelQueue);
+
     rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = dali_rmt_rx_callback,
     };
     resp = rmt_rx_register_event_callbacks(dali_rxChannel, &cbs, this);
-    // printf("rmt_rx_register_event_callbacks: %d (%s)\n", resp, esp_err_to_name(resp));
+
     if (resp != ESP_OK)
         return DALI_ERR_CREATE_RX;
 
     resp = rmt_enable(dali_rxChannel);
-    // printf("rmt_enable (rx):                 %d (%s)\n", resp, esp_err_to_name(resp));
+
     if (resp != ESP_OK)
         return DALI_ERR_ENABLE_RX;
 
-    BaseType_t resp2 = xTaskCreate(dali_rmt_rx_task, "daliRX", 4096, this, 0, &rxTaskHandle);
-    // printf("xTaskCreate:                     %d (%s)\n", resp2, resp2 == pdPASS ? "pdPASS" : "pdFAILED");
+    xTaskCreate(dali_rmt_rx_task, "daliRX", 4096, this, 0, &rxTaskHandle);
 
     gpio_config_t io_conf = {};
     // Interrupt happens
@@ -428,14 +372,9 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     // Configure the pin
     resp = gpio_config(&io_conf);
-    // printf("gpio_config:                     %d (%s)\n", resp, esp_err_to_name(resp));
     //  Configure the interrupt
     resp = gpio_install_isr_service(0 /* No flags */); // Call this only once !!
-    // printf("gpio_install_isr_service:        %d (%s)\n", resp, esp_err_to_name(resp));
     resp = gpio_isr_handler_add(dali_rxChannelConfig.gpio_num, dali_rmt_start_rx_receive, this);
-    // printf("gpio_isr_handler_add:            %d (%s) - %d\n", resp, esp_err_to_name(resp), dali_rxChannelConfig.gpio_num);
-
-    // printf("daliClass:                       %p\n", this);
 
     printf("DaliBus initialized\n");
     return 0;
@@ -455,7 +394,6 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
 {
     isSending = true;
 
-    // printf("Sending %d bits: %.2X%.2X%.2X\n", bits, message[0], message[1], message[2]);
     gpio_intr_disable(getRxPin());
     lastResponse = DALI_RX_EMPTY;
 
@@ -468,17 +406,20 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
         txmessage[2] = (txmessage[2] >> 1) | 0b10000000;
     }
 
+    //rmt_disable(dali_rxChannel);  // Disable RX on the specific channel
     esp_err_t error = rmt_transmit(dali_txChannel, dali_txChannelEncoder, txmessage, bits / 8, &transmit_config);
-    // printf("rmt_transmit:                    %d (%s)\n", error, esp_err_to_name(error));
     if (error != ESP_OK)
     {
         isSending = false;
         // TODO add more handling of error
         return DALI_TX_ERROR;
     }
-    error = rmt_tx_wait_all_done(dali_txChannel, 100);
+
+    error = rmt_tx_wait_all_done(dali_txChannel, 100 );  // Wait 30 milliseconds for the transmission to complete calculated for 32 bit commands max.
+
+    //rmt_enable(dali_rxChannel);  // Enable RX on the specific channel
+
     gpio_intr_enable(getRxPin());
-    // printf("rmt_tx_wait_all_done:            %d (%s)\n", error, esp_err_to_name(error));
     if (error != ESP_OK)
     {
         isSending = false;
@@ -492,8 +433,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
     // wait at up to 22TE
     //  - we receive a response first (if any)
     //  - or wait time to the next forware frame
-    vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(26)));
-    //printf("transmit done\n");
+    vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(50)));
 
     isSending = false;
     return DALI_SENT;
@@ -516,7 +456,6 @@ bool DaliBusClass::getSending()
 
 int DaliBusClass::getLastResponse()
 {
-    // printf("getLastResponse:                 %.2X (%i)\n", lastResponse, lastResponse);
     return lastResponse;
 }
 
