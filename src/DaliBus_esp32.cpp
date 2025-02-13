@@ -238,7 +238,6 @@ static void IRAM_ATTR dali_rmt_start_rx_receive(void *arg)
     if(daliClass->getReceiving())
         return;
     daliClass->setReceiving(true);
-    xTaskAbortDelay(daliClass->rxTaskHandle);
     gpio_intr_disable(daliClass->getRxPin());
     rmt_receive(daliClass->getRxHandle(), daliClass->rawSymbols, sizeof(daliClass->rawSymbols), &(daliClass->dali_rxReceiveConfig));
 }
@@ -390,7 +389,7 @@ int DaliBusClass::begin(byte tx_pin, byte rx_pin, bool active_low)
     dali_rxChannel = NULL;
     dali_rxChannelConfig = (rmt_rx_channel_config_t){
         .gpio_num = (gpio_num_t)rx_pin,
-        .clk_src = RMT_CLK_SRC_REF_TICK,
+        .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = DALI_RMT_RESOLUTION_HZ,
         .mem_block_symbols = 64, // amount of RMT symbols that the channel can store at a time
         .flags = { .invert_in = true }
@@ -492,7 +491,7 @@ daliReturnValue DaliBusClass::sendRaw(const byte *message, uint8_t bits)
     // wait at up to 22TE
     //  - we receive a response first (if any)
     //  - or wait time to the next forware frame
-    vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(26)));
+    vTaskDelay(pdMS_TO_TICKS(DALI_TE_TO_MS(50)));
     //printf("transmit done\n");
 
     isSending = false;
